@@ -1529,3 +1529,7 @@ set_global_assignment -name IP_FILE ip/pcie_example_design/emif_s10_ddr4c.ip
 set_global_assignment -name IP_FILE ip/pcie_example_design/emif_s10_ddr4d.ip
 set_global_assignment -name IP_FILE ip/pcie_ddr4_system/pcie_ddr4_system_vortex_shell_0.ip
 set_global_assignment -name QSYS_FILE pcie_ddr4_system.qsys
+set_global_assignment -name IP_FILE ip/pcie_ddr4_system/pcie_ddr4_system_ddr4_ingress_pipe_ddr4a.ip
+set_global_assignment -name IP_FILE ip/pcie_ddr4_system/pcie_ddr4_system_ddr4_ingress_pipe_ddr4b.ip
+set_global_assignment -name IP_FILE ip/pcie_ddr4_system/pcie_ddr4_system_ddr4_ingress_pipe_ddr4c.ip
+set_global_assignment -name IP_FILE ip/pcie_ddr4_system/pcie_ddr4_system_ddr4_ingress_pipe_ddr4d.ip
