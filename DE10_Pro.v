@@ -505,8 +505,8 @@ DE10PRO_SI5340A_CONFIG si5340a1_controller (
 );
 
 assign SI5340A0_RST_n = 1'b1;
-assign SI5340A0_OE_n  = ~si5340a0_config_done;
+assign SI5340A0_OE_n  = 1'b0;
 assign SI5340A1_RST_n = 1'b1;
-assign SI5340A1_OE_n  = ~si5340a1_config_done;
+assign SI5340A1_OE_n  = 1'b0;
 
 endmodule
