@@ -32,9 +32,9 @@
 // ============================================================================
 
 `define ENABLE_DDR4A
-//`define ENABLE_DDR4B
-//`define ENABLE_DDR4C
-//`define ENABLE_DDR4D
+`define ENABLE_DDR4B
+`define ENABLE_DDR4C
+`define ENABLE_DDR4D
 `define ENABLE_PCIE
 `define ENABLE_PCIE_16
 //`define ENABLE_QSFP28A
@@ -107,10 +107,10 @@ module DE10_Pro(
       output             DDR4B_CK,
       output             DDR4B_CK_n,
       output             DDR4B_CKE,
-      inout    [ 8: 0]   DDR4B_DQS,
-      inout    [ 8: 0]   DDR4B_DQS_n,
-      inout    [71: 0]   DDR4B_DQ,
-      inout    [ 8: 0]   DDR4B_DBI_n,
+      inout    [ 7: 0]   DDR4B_DQS,
+      inout    [ 7: 0]   DDR4B_DQS_n,
+      inout    [63: 0]   DDR4B_DQ,
+      inout    [ 7: 0]   DDR4B_DBI_n,
       output             DDR4B_CS_n,
       output             DDR4B_RESET_n,
       output             DDR4B_ODT,
@@ -132,10 +132,10 @@ module DE10_Pro(
       output             DDR4C_CK,
       output             DDR4C_CK_n,
       output             DDR4C_CKE,
-      inout    [ 8: 0]   DDR4C_DQS,
-      inout    [ 8: 0]   DDR4C_DQS_n,
-      inout    [71: 0]   DDR4C_DQ,
-      inout    [ 8: 0]   DDR4C_DBI_n,
+      inout    [ 7: 0]   DDR4C_DQS,
+      inout    [ 7: 0]   DDR4C_DQS_n,
+      inout    [63: 0]   DDR4C_DQ,
+      inout    [ 7: 0]   DDR4C_DBI_n,
       output             DDR4C_CS_n,
       output             DDR4C_RESET_n,
       output             DDR4C_ODT,
@@ -157,10 +157,10 @@ module DE10_Pro(
       output             DDR4D_CK,
       output             DDR4D_CK_n,
       output             DDR4D_CKE,
-      inout    [ 8: 0]   DDR4D_DQS,
-      inout    [ 8: 0]   DDR4D_DQS_n,
-      inout    [71: 0]   DDR4D_DQ,
-      inout    [ 8: 0]   DDR4D_DBI_n,
+      inout    [ 7: 0]   DDR4D_DQS,
+      inout    [ 7: 0]   DDR4D_DQS_n,
+      inout    [63: 0]   DDR4D_DQ,
+      inout    [ 7: 0]   DDR4D_DBI_n,
       output             DDR4D_CS_n,
       output             DDR4D_RESET_n,
       output             DDR4D_ODT,
@@ -287,8 +287,19 @@ wire [1:0]   pio_button;
 wire ddr4a_local_reset_done;
 wire ddr4a_local_cal_success;
 wire ddr4a_local_cal_fail;
+wire ddr4b_local_reset_done;
+wire ddr4b_local_cal_success;
+wire ddr4b_local_cal_fail;
+wire ddr4c_local_reset_done;
+wire ddr4c_local_cal_success;
+wire ddr4c_local_cal_fail;
+wire ddr4d_local_reset_done;
+wire ddr4d_local_cal_success;
+wire ddr4d_local_cal_fail;
 wire si5340a0_config_done;
 wire si5340a0_i2c_id_read_error;
+wire si5340a1_config_done;
+wire si5340a1_i2c_id_read_error;
 
 localparam [3:0] XCVR_REF_644M53125 = 4'h0;
 localparam [3:0] XCVR_REF_250M      = 4'h2;
@@ -299,9 +310,15 @@ wire [31:0] hip_ctrl_test_in;
 assign hip_ctrl_test_in = 32'h000000A8;
 assign PCIE_WAKE_n = 1'b1;
 
-// LEDs are low-active: {SI5340 done, DDR reset done, DDR cal fail, DDR cal success}.
-assign LED[3: 0] = ~{si5340a0_config_done, ddr4a_local_reset_done,
-                     ddr4a_local_cal_fail, ddr4a_local_cal_success};
+// LEDs are low-active. LED0..3 show DDR4A..D clock/config/calibration ready.
+assign LED[0] = ~(si5340a0_config_done && !si5340a0_i2c_id_read_error &&
+                  ddr4a_local_reset_done && ddr4a_local_cal_success && !ddr4a_local_cal_fail);
+assign LED[1] = ~(si5340a0_config_done && !si5340a0_i2c_id_read_error &&
+                  ddr4b_local_reset_done && ddr4b_local_cal_success && !ddr4b_local_cal_fail);
+assign LED[2] = ~(si5340a1_config_done && !si5340a1_i2c_id_read_error &&
+                  ddr4c_local_reset_done && ddr4c_local_cal_success && !ddr4c_local_cal_fail);
+assign LED[3] = ~(si5340a1_config_done && !si5340a1_i2c_id_read_error &&
+                  ddr4d_local_reset_done && ddr4d_local_cal_success && !ddr4d_local_cal_fail);
 assign pio_button = ~BUTTON; // button low-active
 
 //////////////////////
@@ -384,7 +401,76 @@ pcie_example_design u0 (
 		.emif_s10_ddr4a_mem_mem_dq                            (DDR4A_DQ),                   //   inout,  width = 64
 		.emif_s10_ddr4a_mem_mem_dbi_n                         (DDR4A_DBI_n),                //   inout,   width = 8
 		.emif_s10_ddr4a_status_local_cal_success              (ddr4a_local_cal_success),    //  output,   width = 1
-		.emif_s10_ddr4a_status_local_cal_fail                 (ddr4a_local_cal_fail)        //  output,   width = 1
+		.emif_s10_ddr4a_status_local_cal_fail                 (ddr4a_local_cal_fail),       //  output,   width = 1
+
+		.emif_s10_ddr4b_local_reset_req_local_reset_req       (1'b0),
+		.emif_s10_ddr4b_local_reset_status_local_reset_done   (ddr4b_local_reset_done),
+		.emif_s10_ddr4b_pll_ref_clk_clk                       (DDR4B_REFCLK_p),
+		.emif_s10_ddr4b_oct_oct_rzqin                         (DDR4B_RZQ),
+		.emif_s10_ddr4b_mem_mem_ck                            (DDR4B_CK),
+		.emif_s10_ddr4b_mem_mem_ck_n                          (DDR4B_CK_n),
+		.emif_s10_ddr4b_mem_mem_a                             (DDR4B_A),
+		.emif_s10_ddr4b_mem_mem_act_n                         (DDR4B_ACT_n),
+		.emif_s10_ddr4b_mem_mem_ba                            (DDR4B_BA),
+		.emif_s10_ddr4b_mem_mem_bg                            (DDR4B_BG),
+		.emif_s10_ddr4b_mem_mem_cke                           (DDR4B_CKE),
+		.emif_s10_ddr4b_mem_mem_cs_n                          (DDR4B_CS_n),
+		.emif_s10_ddr4b_mem_mem_odt                           (DDR4B_ODT),
+		.emif_s10_ddr4b_mem_mem_reset_n                       (DDR4B_RESET_n),
+		.emif_s10_ddr4b_mem_mem_par                           (DDR4B_PAR),
+		.emif_s10_ddr4b_mem_mem_alert_n                       (DDR4B_ALERT_n),
+		.emif_s10_ddr4b_mem_mem_dqs                           (DDR4B_DQS),
+		.emif_s10_ddr4b_mem_mem_dqs_n                         (DDR4B_DQS_n),
+		.emif_s10_ddr4b_mem_mem_dq                            (DDR4B_DQ),
+		.emif_s10_ddr4b_mem_mem_dbi_n                         (DDR4B_DBI_n),
+		.emif_s10_ddr4b_status_local_cal_success              (ddr4b_local_cal_success),
+		.emif_s10_ddr4b_status_local_cal_fail                 (ddr4b_local_cal_fail),
+
+		.emif_s10_ddr4c_local_reset_req_local_reset_req       (1'b0),
+		.emif_s10_ddr4c_local_reset_status_local_reset_done   (ddr4c_local_reset_done),
+		.emif_s10_ddr4c_pll_ref_clk_clk                       (DDR4C_REFCLK_p),
+		.emif_s10_ddr4c_oct_oct_rzqin                         (DDR4C_RZQ),
+		.emif_s10_ddr4c_mem_mem_ck                            (DDR4C_CK),
+		.emif_s10_ddr4c_mem_mem_ck_n                          (DDR4C_CK_n),
+		.emif_s10_ddr4c_mem_mem_a                             (DDR4C_A),
+		.emif_s10_ddr4c_mem_mem_act_n                         (DDR4C_ACT_n),
+		.emif_s10_ddr4c_mem_mem_ba                            (DDR4C_BA),
+		.emif_s10_ddr4c_mem_mem_bg                            (DDR4C_BG),
+		.emif_s10_ddr4c_mem_mem_cke                           (DDR4C_CKE),
+		.emif_s10_ddr4c_mem_mem_cs_n                          (DDR4C_CS_n),
+		.emif_s10_ddr4c_mem_mem_odt                           (DDR4C_ODT),
+		.emif_s10_ddr4c_mem_mem_reset_n                       (DDR4C_RESET_n),
+		.emif_s10_ddr4c_mem_mem_par                           (DDR4C_PAR),
+		.emif_s10_ddr4c_mem_mem_alert_n                       (DDR4C_ALERT_n),
+		.emif_s10_ddr4c_mem_mem_dqs                           (DDR4C_DQS),
+		.emif_s10_ddr4c_mem_mem_dqs_n                         (DDR4C_DQS_n),
+		.emif_s10_ddr4c_mem_mem_dq                            (DDR4C_DQ),
+		.emif_s10_ddr4c_mem_mem_dbi_n                         (DDR4C_DBI_n),
+		.emif_s10_ddr4c_status_local_cal_success              (ddr4c_local_cal_success),
+		.emif_s10_ddr4c_status_local_cal_fail                 (ddr4c_local_cal_fail),
+
+		.emif_s10_ddr4d_local_reset_req_local_reset_req       (1'b0),
+		.emif_s10_ddr4d_local_reset_status_local_reset_done   (ddr4d_local_reset_done),
+		.emif_s10_ddr4d_pll_ref_clk_clk                       (DDR4D_REFCLK_p),
+		.emif_s10_ddr4d_oct_oct_rzqin                         (DDR4D_RZQ),
+		.emif_s10_ddr4d_mem_mem_ck                            (DDR4D_CK),
+		.emif_s10_ddr4d_mem_mem_ck_n                          (DDR4D_CK_n),
+		.emif_s10_ddr4d_mem_mem_a                             (DDR4D_A),
+		.emif_s10_ddr4d_mem_mem_act_n                         (DDR4D_ACT_n),
+		.emif_s10_ddr4d_mem_mem_ba                            (DDR4D_BA),
+		.emif_s10_ddr4d_mem_mem_bg                            (DDR4D_BG),
+		.emif_s10_ddr4d_mem_mem_cke                           (DDR4D_CKE),
+		.emif_s10_ddr4d_mem_mem_cs_n                          (DDR4D_CS_n),
+		.emif_s10_ddr4d_mem_mem_odt                           (DDR4D_ODT),
+		.emif_s10_ddr4d_mem_mem_reset_n                       (DDR4D_RESET_n),
+		.emif_s10_ddr4d_mem_mem_par                           (DDR4D_PAR),
+		.emif_s10_ddr4d_mem_mem_alert_n                       (DDR4D_ALERT_n),
+		.emif_s10_ddr4d_mem_mem_dqs                           (DDR4D_DQS),
+		.emif_s10_ddr4d_mem_mem_dqs_n                         (DDR4D_DQS_n),
+		.emif_s10_ddr4d_mem_mem_dq                            (DDR4D_DQ),
+		.emif_s10_ddr4d_mem_mem_dbi_n                         (DDR4D_DBI_n),
+		.emif_s10_ddr4d_status_local_cal_success              (ddr4d_local_cal_success),
+		.emif_s10_ddr4d_status_local_cal_fail                 (ddr4d_local_cal_fail)
 	);
 
 DE10PRO_SI5340A_CONFIG si5340a0_controller (
@@ -401,7 +487,23 @@ DE10PRO_SI5340A_CONFIG si5340a0_controller (
     .oPLL_REG_CONFIG_DONE   (si5340a0_config_done)
 );
 
+DE10PRO_SI5340A_CONFIG si5340a1_controller (
+    .iCLK                   (CLK_50_B2C),
+    .iRST_n                 (CPU_RESET_n),
+    .iStart                 (1'b0),
+    .iXCVR0_REFCLK          (XCVR_REF_644M53125),
+    .iXCVR1_REFCLK          (XCVR_REF_644M53125),
+    .iMEM0_REFCLK           (MEM_REF_166M667),
+    .iMEM1_REFCLK           (MEM_REF_166M667),
+    .I2C_CLK                (SI5340A1_I2C_SCL),
+    .I2C_DATA               (SI5340A1_I2C_SDA),
+    .oPLL_I2C_ID_READ_ERROR (si5340a1_i2c_id_read_error),
+    .oPLL_REG_CONFIG_DONE   (si5340a1_config_done)
+);
+
 assign SI5340A0_RST_n = 1'b1;
 assign SI5340A0_OE_n  = 1'b0;
+assign SI5340A1_RST_n = 1'b1;
+assign SI5340A1_OE_n  = 1'b0;
 
 endmodule
