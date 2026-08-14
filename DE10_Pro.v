@@ -310,15 +310,18 @@ wire [31:0] hip_ctrl_test_in;
 assign hip_ctrl_test_in = 32'h000000A8;
 assign PCIE_WAKE_n = 1'b1;
 
-// LEDs are low-active. LED0..3 show DDR4A..D clock/config/calibration ready.
-assign LED[0] = ~(si5340a0_config_done && !si5340a0_i2c_id_read_error &&
-                  ddr4a_local_reset_done && ddr4a_local_cal_success && !ddr4a_local_cal_fail);
-assign LED[1] = ~(si5340a0_config_done && !si5340a0_i2c_id_read_error &&
-                  ddr4b_local_reset_done && ddr4b_local_cal_success && !ddr4b_local_cal_fail);
-assign LED[2] = ~(si5340a1_config_done && !si5340a1_i2c_id_read_error &&
-                  ddr4c_local_reset_done && ddr4c_local_cal_success && !ddr4c_local_cal_fail);
-assign LED[3] = ~(si5340a1_config_done && !si5340a1_i2c_id_read_error &&
-                  ddr4d_local_reset_done && ddr4d_local_cal_success && !ddr4d_local_cal_fail);
+// LEDs are low-active. SW selects DDR4 status for channels A..D on LED0..3.
+wire [3:0] ddr4_led_status;
+assign ddr4_led_status =
+    (SW == 2'b00) ? {ddr4d_local_cal_success, ddr4c_local_cal_success,
+                     ddr4b_local_cal_success, ddr4a_local_cal_success} :
+    (SW == 2'b01) ? {ddr4d_local_cal_fail, ddr4c_local_cal_fail,
+                     ddr4b_local_cal_fail, ddr4a_local_cal_fail} :
+    (SW == 2'b10) ? {ddr4d_local_reset_done, ddr4c_local_reset_done,
+                     ddr4b_local_reset_done, ddr4a_local_reset_done} :
+                      {si5340a1_config_done, si5340a1_config_done,
+                       si5340a0_config_done, si5340a0_config_done};
+assign LED = ~ddr4_led_status;
 assign pio_button = ~BUTTON; // button low-active
 
 //////////////////////
@@ -502,8 +505,8 @@ DE10PRO_SI5340A_CONFIG si5340a1_controller (
 );
 
 assign SI5340A0_RST_n = 1'b1;
-assign SI5340A0_OE_n  = 1'b0;
+assign SI5340A0_OE_n  = ~si5340a0_config_done;
 assign SI5340A1_RST_n = 1'b1;
-assign SI5340A1_OE_n  = 1'b0;
+assign SI5340A1_OE_n  = ~si5340a1_config_done;
 
 endmodule
