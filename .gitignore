@@ -6,9 +6,13 @@ synth_dumps/
 output_files/
 ip_upgrade_port_diff_reports/
 /pcie_ddr4_system/
+/generated/
+/vortex_shell_hw.tcl
 
 # Platform Designer generated component output; keep top-level *.ip configs
 /ip/pcie_example_design/*/
+/ip/pcie_ddr4_system/*/
+/ip/pcie_ddr4_system/*.BAK.ip
 /ip/pcie_example_design/*.BAK.ip
 
 # Quartus reports, GUI state, and programming artifacts

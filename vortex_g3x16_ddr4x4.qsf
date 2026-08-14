@@ -1506,7 +1506,7 @@ set_global_assignment -name DEVICE_INITIALIZATION_CLOCK OSC_CLK_1_125MHZ
 #============================================================
 set_global_assignment -name SEED 5
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
-set_global_assignment -name QIP_FILE pcie_ddr4_system/pcie_ddr4_system.qip
+source generated/vortexcrypto/vortex_sources.qsf
 set_global_assignment -name VERILOG_FILE vortex_de10pro_top.v
 set_global_assignment -name VERILOG_FILE si5340_controller/DE10PRO_SI5340A_CONFIG.v
 set_global_assignment -name VERILOG_FILE si5340_controller/si5340a_clk_frq_sel_gen.v
@@ -1527,3 +1527,5 @@ set_global_assignment -name IP_FILE ip/pcie_example_design/emif_s10_ddr4a.ip
 set_global_assignment -name IP_FILE ip/pcie_example_design/emif_s10_ddr4b.ip
 set_global_assignment -name IP_FILE ip/pcie_example_design/emif_s10_ddr4c.ip
 set_global_assignment -name IP_FILE ip/pcie_example_design/emif_s10_ddr4d.ip
+set_global_assignment -name IP_FILE ip/pcie_ddr4_system/pcie_ddr4_system_vortex_shell_0.ip
+set_global_assignment -name QSYS_FILE pcie_ddr4_system.qsys
