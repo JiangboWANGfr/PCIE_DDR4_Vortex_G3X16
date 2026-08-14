@@ -47,7 +47,8 @@
 
 module i2c_bus_controller(
 
-	iCLK,  // system clk , about 80k hz
+	iCLK,  // 50 MHz system clock
+	iCLK_EN, // one-cycle enable at the original divided-clock rising edge
 	iRST_n, // system reset
 	iStart,  // process start , high active
 	iSlave_addr, //    
@@ -97,6 +98,7 @@ module i2c_bus_controller(
 //===========================================================================
 				
 input			iCLK;
+input			iCLK_EN;
 input			iRST_n;
 input			iStart;
 input	[6:0]	iSlave_addr;
@@ -183,13 +185,15 @@ always @(posedge iCLK or negedge iRST_n)
   begin
     if (!iRST_n)
       start_clk_control	<= 1'b1 ;
-    else
-      if ((i2c_state == state_start1) &&
-          ((i2c_clk_cnt == 0) || (i2c_clk_cnt == 1))
-         )
-        start_clk_control <= 1'b0 ;
-      else
-        start_clk_control <= 1'b1 ;
+    else if (iCLK_EN)
+      begin
+        if ((i2c_state == state_start1) &&
+            ((i2c_clk_cnt == 0) || (i2c_clk_cnt == 1))
+           )
+          start_clk_control <= 1'b0 ;
+        else
+          start_clk_control <= 1'b1 ;
+      end
   end
 //assign start_clk_control 	= ((i2c_state == state_start1)&&(i2c_clk_cnt == 2)) ? 0: 1;
 // fang assign stop_clk_control 	= ((i2c_state == state_stop)&&(i2c_clk_cnt ==2)) ? 0: 1;  
@@ -197,13 +201,15 @@ always @(posedge iCLK or negedge iRST_n)
   begin
     if (!iRST_n)
       stop_clk_control <= 1'b1 ;
-    else
-      if (((i2c_state == state_wr_ack) || (i2c_state == state_non_ack)) &&
-          (i2c_clk_cnt == 1)
-         )
-        stop_clk_control <= 1'b0 ;
-      else
-        stop_clk_control <= 1'b1 ;
+    else if (iCLK_EN)
+      begin
+        if (((i2c_state == state_wr_ack) || (i2c_state == state_non_ack)) &&
+            (i2c_clk_cnt == 1)
+           )
+          stop_clk_control <= 1'b0 ;
+        else
+          stop_clk_control <= 1'b1 ;
+      end
   end
 
 //assign i2c_clk = (process_en&&(i2c_state!=state_start1)&&(i2c_state!=state_stop)) ? i2c_clk_src : 1'b1;
@@ -224,7 +230,7 @@ always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			test_cnt <= 0;
-		else
+		else if (iCLK_EN)
 			test_cnt <= test_cnt + 1;
 	end
 
@@ -238,7 +244,7 @@ always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			i2c_clk_cnt <= 0;
-		else
+		else if (iCLK_EN)
 			i2c_clk_cnt <= i2c_clk_cnt + 1'b1;
 	end
 
@@ -247,30 +253,36 @@ always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			i2c_clk_src <= 0;
-		else if (i2c_clk_cnt>1)
-			i2c_clk_src <= 1;
-		else
-			i2c_clk_src <= 0;	
+		else if (iCLK_EN)
+			begin
+				if (i2c_clk_cnt>1)
+					i2c_clk_src <= 1;
+				else
+					i2c_clk_src <= 0;
+			end
 	end
 
 always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			system_clk <= 0;
-		else if ((i2c_clk_cnt>0)&&(i2c_clk_cnt<3))
-			system_clk <= 1;
-		else
-			system_clk <= 0;
+		else if (iCLK_EN)
+			begin
+				if ((i2c_clk_cnt>0)&&(i2c_clk_cnt<3))
+					system_clk <= 1;
+				else
+					system_clk <= 0;
+			end
 	end			
 /////////////////////// main state control ////////////////////////
 
-always@(posedge system_clk or negedge iRST_n)
+always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			begin
 				i2c_state <= 0;
 			end
-		else
+		else if (iCLK_EN && (i2c_clk_cnt == 2'd1))
 			begin
 				case(i2c_state)
 					state_idle:
@@ -400,19 +412,19 @@ assign data_shift_en 		= (i2c_state == state_data1) 		? 1'b1 : 1'b0;
 assign wr_data_en    		= (i2c_state == state_wr_data) 		? 1'b1 : 1'b0;
 
 
-always@(posedge system_clk or negedge iRST_n)
+always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			i2c_bit_cnt <=0;
-		else if (i2c_bit_cnt == 7)
+		else if (iCLK_EN && (i2c_clk_cnt == 2'd1) && (i2c_bit_cnt == 7))
 			i2c_bit_cnt <=0;
-		else if (
+		else if (iCLK_EN && (i2c_clk_cnt == 2'd1) && (
 				  (i2c_state == state_slave_addr1) ||
 				  (i2c_state == state_word_addr1)  ||		
 				  (i2c_state == state_slave_addr2) ||	
 				  (i2c_state == state_wr_data)     ||				  
 			      (i2c_state == state_data1)   	   
-				)					
+				))
 			i2c_bit_cnt <= i2c_bit_cnt + 1;
 	end
 
@@ -488,7 +500,7 @@ always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			read_data_tmp <= 0;
-		else if ((i2c_state == state_data1)&&(falling_edge))
+		else if (iCLK_EN && (i2c_state == state_data1)&&(falling_edge))
 			read_data_tmp <= {read_data_tmp[6:0],i2c_data};
 	end		 	
 
@@ -496,7 +508,7 @@ always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			i2c_read_data <= 0;
-		else if ((i2c_state == state_non_ack)||(i2c_state == state_master_ack))
+		else if (iCLK_EN && ((i2c_state == state_non_ack)||(i2c_state == state_master_ack)))
 			i2c_read_data <= read_data_tmp;
 	end	
 
@@ -506,21 +518,23 @@ always@(posedge iCLK or negedge iRST_n)    // fang
   begin
     if (!iRST_n)
       i2c_read_data_rdy <= 1'b0 ;
-    else
-      if  ((i2c_state == state_non_ack)||(i2c_state == state_master_ack))
-        i2c_read_data_rdy <= 1'b1 ;
-      else
-        i2c_read_data_rdy <= 1'b0 ;
+    else if (iCLK_EN)
+      begin
+        if  ((i2c_state == state_non_ack)||(i2c_state == state_master_ack))
+          i2c_read_data_rdy <= 1'b1 ;
+        else
+          i2c_read_data_rdy <= 1'b0 ;
+      end
   end
 
 
-always@(posedge i2c_clk_src or negedge iRST_n)
+always@(posedge iCLK or negedge iRST_n)
 	begin 
 		if (!iRST_n)
 			read_length <= 0;
-		else if (i2c_state == state_start1)	
+		else if (iCLK_EN && (i2c_clk_cnt == 2'd2) && (i2c_state == state_start1))
 			read_length <= iRead_length;
-		else if ((i2c_state == state_data1)&&(i2c_bit_cnt == 1))
+		else if (iCLK_EN && (i2c_clk_cnt == 2'd2) && (i2c_state == state_data1)&&(i2c_bit_cnt == 1))
 			begin
 				if (read_length == 0)
 					read_length <= 0;	
@@ -535,9 +549,9 @@ always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			i2c_stop_ctrl_cnt <=0;
-		else if (i2c_state == state_stop)
+		else if (iCLK_EN && (i2c_state == state_stop))
 			i2c_stop_ctrl_cnt <=i2c_stop_ctrl_cnt + 1;	
-		else
+		else if (iCLK_EN)
 			i2c_stop_ctrl_cnt <= 0;
 	end		
 
@@ -547,11 +561,13 @@ always@(posedge iCLK or negedge iRST_n)    // fang
   begin
     if (!iRST_n)
       oCONFIG_DONE <= 1'b0 ;
-    else
-      if (i2c_state == state_stop)
-        oCONFIG_DONE <= 1'b1 ;
-      else
-        oCONFIG_DONE <= 1'b0 ;
+    else if (iCLK_EN)
+      begin
+        if (i2c_state == state_stop)
+          oCONFIG_DONE <= 1'b1 ;
+        else
+          oCONFIG_DONE <= 1'b0 ;
+      end
   end
 
 endmodule	

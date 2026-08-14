@@ -329,6 +329,8 @@ assign pio_button = ~BUTTON; // button low-active
 wire             any_rstn;
 reg              any_rstn_r /* synthesis ALTERA_ATTRIBUTE = "SUPPRESS_DA_RULE_INTERNAL=R102"  */;
 reg              any_rstn_rr /* synthesis ALTERA_ATTRIBUTE = "SUPPRESS_DA_RULE_INTERNAL=R102"  */;
+reg              si5340_rstn_r /* synthesis ALTERA_ATTRIBUTE = "SUPPRESS_DA_RULE_INTERNAL=R102"  */;
+reg              si5340_rstn_rr /* synthesis ALTERA_ATTRIBUTE = "SUPPRESS_DA_RULE_INTERNAL=R102"  */;
 
 assign any_rstn = PCIE_PERST_n & CPU_RESET_n;
 
@@ -340,6 +342,16 @@ always @(posedge CLK_50_B2C or negedge any_rstn) begin
     end else begin
         any_rstn_r <= 1;
         any_rstn_rr <= any_rstn_r;
+    end
+end
+
+always @(posedge CLK_50_B2C or negedge CPU_RESET_n) begin
+    if (CPU_RESET_n == 0) begin
+        si5340_rstn_r <= 0;
+        si5340_rstn_rr <= 0;
+    end else begin
+        si5340_rstn_r <= 1;
+        si5340_rstn_rr <= si5340_rstn_r;
     end
 end
 
@@ -478,7 +490,7 @@ pcie_ddr4_system u_pcie_ddr4_system (
 
 DE10PRO_SI5340A_CONFIG si5340a0_controller (
     .iCLK                   (CLK_50_B2C),
-    .iRST_n                 (CPU_RESET_n),
+    .iRST_n                 (si5340_rstn_rr),
     .iStart                 (1'b0),
     .iXCVR0_REFCLK          (XCVR_REF_644M53125),
     .iXCVR1_REFCLK          (XCVR_REF_250M),
@@ -492,7 +504,7 @@ DE10PRO_SI5340A_CONFIG si5340a0_controller (
 
 DE10PRO_SI5340A_CONFIG si5340a1_controller (
     .iCLK                   (CLK_50_B2C),
-    .iRST_n                 (CPU_RESET_n),
+    .iRST_n                 (si5340_rstn_rr),
     .iStart                 (1'b0),
     .iXCVR0_REFCLK          (XCVR_REF_644M53125),
     .iXCVR1_REFCLK          (XCVR_REF_644M53125),

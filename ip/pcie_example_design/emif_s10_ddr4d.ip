@@ -8365,7 +8365,7 @@
         <ipxact:parameter parameterId="DIAG_EXTRA_CONFIGS" type="string">
           <ipxact:name>DIAG_EXTRA_CONFIGS</ipxact:name>
           <ipxact:displayName>Extra configuration</ipxact:displayName>
-          <ipxact:value></ipxact:value>
+          <ipxact:value>WIRELUTS_FOR_C2P=false</ipxact:value>
         </ipxact:parameter>
         <ipxact:parameter parameterId="DIAG_USE_BOARD_DELAY_MODEL" type="bit">
           <ipxact:name>DIAG_USE_BOARD_DELAY_MODEL</ipxact:name>

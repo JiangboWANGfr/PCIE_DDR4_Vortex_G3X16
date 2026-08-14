@@ -76,9 +76,16 @@ set_clock_groups -asynchronous -group [get_clocks { DDR4D_REFCLK_p }]
 #**************************************************************
 # Set False Path
 #**************************************************************
+set_false_path -from [get_ports CPU_RESET_n] -to [get_registers {any_rstn_r any_rstn_rr si5340_rstn_r si5340_rstn_rr}]
+# PCIE_PERST_n is an asynchronous board-level reset, including the direct HIP pin_perst path.
+set_false_path -from [get_ports PCIE_PERST_n]
 set_false_path -from {any_rstn_rr}
 set_false_path -to [get_ports LED*]
 set_false_path -to [get_ports BUTTON*]
+
+# Board-management I2C output timing is intentionally waived; the controller
+# uses CLK_50_B2C clock-enables and requires RTL plus board-level verification.
+set_false_path -to [get_ports {SI5340A0_I2C_SCL SI5340A0_I2C_SDA SI5340A1_I2C_SCL SI5340A1_I2C_SDA}]
 
 
 

@@ -24,7 +24,7 @@ always@(posedge iCLK or negedge iRST_n)
 	begin
 		if (!iRST_n)
 			begin
-				in_delay_reg <= {iIn,iIn};
+				in_delay_reg <= 2'b00;
 			end
 		else
 			begin

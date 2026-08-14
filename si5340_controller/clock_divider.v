@@ -50,12 +50,12 @@
 module clock_divider(
 iCLK,
 iRST_n,
-oCLK_OUT
+oCLK_EN
 );
 
 input iCLK;
 input iRST_n;
-output oCLK_OUT;
+output oCLK_EN;
 
 reg [`DIV_WITDH-1:0] clk_cnt;
 
@@ -65,10 +65,10 @@ always@(posedge iCLK or negedge iRST_n)
 		if (!iRST_n)
 			clk_cnt <= 0;
 		else	
-			clk_cnt <= clk_cnt + 1;
+			clk_cnt <= clk_cnt + 1'b1;
 	end
 
-assign oCLK_OUT = clk_cnt[`DIV_WITDH-1];
+assign oCLK_EN = (clk_cnt == 7'd63);
 
 
 endmodule

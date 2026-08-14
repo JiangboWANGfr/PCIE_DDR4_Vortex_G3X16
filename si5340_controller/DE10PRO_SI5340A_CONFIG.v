@@ -88,7 +88,7 @@ wire 			    i2c_reg_control_start;
 wire 			    i2c_bus_controller_state;
 wire			     iINITIAL_ENABLE;
 wire 			    system_start;
-wire 			    i2c_system_clk;
+wire 			    i2c_clk_en;
 wire			     i2c_controller_config_done;
 wire			     oController_Ready;
 wire			     initial_start;
@@ -152,13 +152,14 @@ edge_detector edge_detector(
 clock_divider clock_divider(
 .iCLK(iCLK),
 .iRST_n(iRST_n),
-.oCLK_OUT(i2c_system_clk)
+.oCLK_EN(i2c_clk_en)
 );
 
 
 i2c_bus_controller i2c_bus_controller	(
 
-	.iCLK  (i2c_system_clk),
+	.iCLK       (iCLK),
+	.iCLK_EN    (i2c_clk_en),
 	.iRST_n     (iRST_n),
 	.iStart     (i2c_reg_control_start),
 	.iSlave_addr(slave_addr),
