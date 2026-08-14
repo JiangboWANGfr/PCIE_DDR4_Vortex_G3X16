@@ -42,7 +42,7 @@
 //`define ENABLE_QSFP28C
 //`define ENABLE_QSFP28D
 
-module DE10_Pro(
+module vortex_de10pro_top(
 
       ///////// CLOCK /////////
       input              CLK_100_B3I,
@@ -344,7 +344,7 @@ always @(posedge CLK_50_B2C or negedge any_rstn) begin
 end
 
 
-pcie_example_design u0 (
+pcie_ddr4_system u_pcie_ddr4_system (
 		.refclk_clk                              (PCIE_REFCLK_p),                              //   input,   width = 1,        refclk.clk
 		.pcie_rstn_npor                          (any_rstn_rr),                          //   input,   width = 1,     pcie_rstn.npor
 		.pcie_rstn_pin_perst                     (PCIE_PERST_n),                     //   input,   width = 1,              .pin_perst

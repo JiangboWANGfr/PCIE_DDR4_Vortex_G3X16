@@ -5,7 +5,7 @@ tmp-clearbox/
 synth_dumps/
 output_files/
 ip_upgrade_port_diff_reports/
-/pcie_example_design/
+/pcie_ddr4_system/
 
 # Platform Designer generated component output; keep top-level *.ip configs
 /ip/pcie_example_design/*/

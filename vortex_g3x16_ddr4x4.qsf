@@ -6,7 +6,7 @@ set_global_assignment -name FAMILY "Stratix 10"
 #set_global_assignment -name DEVICE 1SG280HU2F50E2VG
 #set_global_assignment -name DEVICE 1SX280HU2F50E1VG
 set_global_assignment -name DEVICE 1SG280HU1F50E1VG
-set_global_assignment -name TOP_LEVEL_ENTITY "DE10_Pro"
+set_global_assignment -name TOP_LEVEL_ENTITY "vortex_de10pro_top"
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION "17.1.0 PRO EDITION"
 set_global_assignment -name LAST_QUARTUS_VERSION "19.2.0 Pro Edition"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "Wed Jan 31 14:15:58 2018"
@@ -1505,8 +1505,8 @@ set_global_assignment -name DEVICE_INITIALIZATION_CLOCK OSC_CLK_1_125MHZ
 
 #============================================================
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
-set_global_assignment -name QIP_FILE pcie_example_design/pcie_example_design.qip
-set_global_assignment -name VERILOG_FILE DE10_Pro.v
+set_global_assignment -name QIP_FILE pcie_ddr4_system/pcie_ddr4_system.qip
+set_global_assignment -name VERILOG_FILE vortex_de10pro_top.v
 set_global_assignment -name VERILOG_FILE si5340_controller/DE10PRO_SI5340A_CONFIG.v
 set_global_assignment -name VERILOG_FILE si5340_controller/si5340a_clk_frq_sel_gen.v
 set_global_assignment -name VERILOG_FILE si5340_controller/si5340a_freq_prameter_selector.v
@@ -1515,7 +1515,7 @@ set_global_assignment -name VERILOG_FILE si5340_controller/clock_divider.v
 set_global_assignment -name VERILOG_FILE si5340_controller/edge_detector.v
 set_global_assignment -name VERILOG_FILE si5340_controller/i2c_bus_controller.v
 set_global_assignment -name VERILOG_FILE si5340_controller/initial_config.v
-set_global_assignment -name SDC_FILE DE10_Pro.sdc
+set_global_assignment -name SDC_FILE vortex_de10pro_top.sdc
 set_global_assignment -name IP_FILE ip/pcie_example_design/pcie_example_design_DUT.ip
 set_global_assignment -name IP_FILE ip/pcie_example_design/pcie_example_design_MEM.ip
 set_global_assignment -name IP_FILE ip/pcie_example_design/pcie_example_design_BAR_INTERPRETER.ip
