@@ -175,8 +175,15 @@ module tb_de10pro_board_manager;
 
         read_csr(8'h00, read_value);
         if (read_value != 32'h5658424d) $fatal(1, "bad manager magic");
+        read_csr(8'h04, read_value);
+        if (read_value != 32'h00010002) $fatal(1, "bad manager version");
         read_csr(8'h08, read_value);
-        if (read_value != 32'h0000077f) $fatal(1, "bad capabilities");
+        if (read_value != 32'h000007ff) $fatal(1, "bad capabilities");
+        read_csr(8'h60, read_value);
+        if (read_value != 32'h00002000) $fatal(1, "bad default fan control");
+        write_csr(8'h60, 32'h00004402);
+        read_csr(8'h60, read_value);
+        if (read_value != 32'h00004402) $fatal(1, "bad manual fan control readback");
         read_csr(8'h20, read_value);
         if (read_value != 32'd208435) $fatal(1, "bad input power scale");
         read_csr(8'h24, read_value);
@@ -191,6 +198,7 @@ module tb_de10pro_board_manager;
         force dut.input_power_snapshot = 24'h123456;
         force dut.core_power_snapshot = 24'h654321;
         force dut.fan_full_on = 1'b0;
+        force dut.fan_full_off = 1'b0;
         force dut.fan_state_valid = 1'b0;
         force dut.fan_dac = 8'h20;
 
@@ -207,6 +215,9 @@ module tb_de10pro_board_manager;
         force dut.fan_state_valid = 1'b1;
         read_csr(8'h5c, read_value);
         if (read_value != 32'h00002002) $fatal(1, "bad valid fan status encoding");
+        force dut.fan_full_off = 1'b1;
+        read_csr(8'h5c, read_value);
+        if (read_value != 32'h00002006) $fatal(1, "bad full-off fan status encoding");
 
         write_csr(8'h38, 32'd125000000);
         write_csr(8'h48, 32'h1234);
@@ -230,6 +241,7 @@ module tb_de10pro_board_manager;
         release dut.input_power_snapshot;
         release dut.core_power_snapshot;
         release dut.fan_full_on;
+        release dut.fan_full_off;
         release dut.fan_state_valid;
         release dut.fan_dac;
 

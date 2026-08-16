@@ -27,12 +27,16 @@ module tb_board_mgmt_core;
     wire [23:0] input_power_snapshot;
     wire [23:0] core_power_snapshot;
     wire fan_full_on;
+    wire fan_full_off;
     wire fan_state_valid;
     wire [7:0] fan_dac;
     reg temp_force_nack;
     reg fan_force_nack;
     reg input_power_force_nack;
     reg core_power_force_nack;
+    reg [1:0] fan_control_mode;
+    reg [7:0] fan_control_dac;
+    reg fan_control_update;
     reg [31:0] csr_value;
     reg snapshot_update_delayed;
     integer wait_cycles;
@@ -54,6 +58,9 @@ module tb_board_mgmt_core;
         .fan_sda               (fan_sda),
         .power_scl             (power_scl),
         .power_sda             (power_sda),
+        .fan_control_mode      (fan_control_mode),
+        .fan_control_dac       (fan_control_dac),
+        .fan_control_update    (fan_control_update),
         .snapshot_update        (snapshot_update),
         .snapshot_sequence      (snapshot_sequence),
         .snapshot_valid         (snapshot_valid),
@@ -63,6 +70,7 @@ module tb_board_mgmt_core;
         .input_power_snapshot   (input_power_snapshot),
         .core_power_snapshot    (core_power_snapshot),
         .fan_full_on            (fan_full_on),
+        .fan_full_off           (fan_full_off),
         .fan_state_valid        (fan_state_valid),
         .fan_dac                (fan_dac),
         .avs_read              (avs_read),
@@ -157,6 +165,19 @@ module tb_board_mgmt_core;
         end
     endtask
 
+    task set_fan_control;
+        input [1:0] mode_value;
+        input [7:0] dac_value;
+        begin
+            @(negedge clk);
+            fan_control_mode = mode_value;
+            fan_control_dac = dac_value;
+            fan_control_update = 1'b1;
+            @(negedge clk);
+            fan_control_update = 1'b0;
+        end
+    endtask
+
     task wait_for_snapshot;
         input [31:0] expected_sequence;
         begin
@@ -184,6 +205,9 @@ module tb_board_mgmt_core;
         fan_force_nack = 1'b0;
         input_power_force_nack = 1'b0;
         core_power_force_nack = 1'b0;
+        fan_control_mode = 2'd0;
+        fan_control_dac = 8'h20;
+        fan_control_update = 1'b0;
 
         temperature_device.memory[8'h00] = 8'h19;
         temperature_device.memory[8'h01] = 8'h41;
@@ -400,8 +424,50 @@ module tb_board_mgmt_core;
             $fatal(1, "fan did not reduce until after a complete healthy round");
         end
 
+        fan_write_count_before = fan_device.write_count;
+        set_fan_control(2'd2, 8'h44);
+        wait_for_snapshot(32'd10);
+        if ((fan_device.write_count !== fan_write_count_before + 1)
+         || (fan_device.write_register_log[fan_write_count_before] !== 8'h06)
+         || (fan_device.write_data_log[fan_write_count_before] !== 8'h44)
+         || fan_full_on || (fan_dac !== 8'h44)) begin
+            $fatal(1, "manual DAC mode did not apply DAC=0x44");
+        end
+
+        fan_write_count_before = fan_device.write_count;
+        set_fan_control(2'd1, 8'h44);
+        wait_for_snapshot(32'd11);
+        if ((fan_device.write_count !== fan_write_count_before + 1)
+         || (fan_device.write_register_log[fan_write_count_before] !== 8'h02)
+         || (fan_device.write_data_log[fan_write_count_before] !== 8'h0a)
+         || !fan_full_on) begin
+            $fatal(1, "manual full-on mode did not apply CONFIG=0x0a");
+        end
+
+        fan_write_count_before = fan_device.write_count;
+        set_fan_control(2'd3, 8'h78);
+        wait_for_snapshot(32'd12);
+        if ((fan_device.write_count !== fan_write_count_before + 1)
+         || (fan_device.write_register_log[fan_write_count_before] !== 8'h02)
+         || (fan_device.write_data_log[fan_write_count_before] !== 8'h1a)
+         || fan_full_on || !fan_full_off) begin
+            $fatal(1, "manual full-off mode did not apply CONFIG=0x1a");
+        end
+
+        fan_write_count_before = fan_device.write_count;
+        set_fan_control(2'd0, 8'h20);
+        wait_for_snapshot(32'd13);
+        if ((fan_device.write_count !== fan_write_count_before + 2)
+         || (fan_device.write_register_log[fan_write_count_before] !== 8'h06)
+         || (fan_device.write_data_log[fan_write_count_before] !== 8'h20)
+         || (fan_device.write_register_log[fan_write_count_before + 1] !== 8'h02)
+         || (fan_device.write_data_log[fan_write_count_before + 1] !== 8'h3a)
+         || fan_full_on || (fan_dac !== 8'h20)) begin
+            $fatal(1, "return to automatic low-temperature mode failed");
+        end
+
         @(negedge clk);
-        if (snapshot_pulse_count !== 9) begin
+        if (snapshot_pulse_count !== 13) begin
             $fatal(1, "snapshot_update pulse count mismatch: %0d", snapshot_pulse_count);
         end
 

@@ -43,8 +43,8 @@ module de10pro_board_manager #(
 );
 
     localparam [31:0] MAGIC_VALUE = 32'h5658424d;
-    localparam [31:0] VERSION_VALUE = 32'h00010000;
-    localparam [31:0] CAPABILITIES = 32'h0000077f;
+    localparam [31:0] VERSION_VALUE = 32'h00010002;
+    localparam [31:0] CAPABILITIES = 32'h000007ff;
     localparam [31:0] POWER_INPUT_LSB_NW = 32'd208435;
     localparam [31:0] POWER_CORE_LSB_NW = 32'd5002440;
 
@@ -72,6 +72,7 @@ module de10pro_board_manager #(
     localparam [7:0] REG_CLOCK_ERROR    = 8'h54;
     localparam [7:0] REG_CLOCK_MEASURED = 8'h58;
     localparam [7:0] REG_FAN_STATUS     = 8'h5c;
+    localparam [7:0] REG_FAN_CONTROL    = 8'h60;
 
     wire snapshot_update;
     wire [31:0] snapshot_sequence;
@@ -82,6 +83,7 @@ module de10pro_board_manager #(
     wire [23:0] input_power_snapshot;
     wire [23:0] core_power_snapshot;
     wire fan_full_on;
+    wire fan_full_off;
     wire fan_state_valid;
     wire [7:0] fan_dac;
     wire [31:0] raw_readdata;
@@ -121,6 +123,10 @@ module de10pro_board_manager #(
     wire [31:0] quiesce_status;
     wire telemetry_clear;
     wire command_write;
+    wire fan_control_write;
+
+    reg [1:0] fan_control_mode;
+    reg [7:0] fan_control_dac;
 
     reg [31:0] read_data_mux;
 
@@ -136,6 +142,8 @@ module de10pro_board_manager #(
                          && (avs_address == REG_CLOCK_COMMAND)
                          && avs_byteenable[0];
     assign telemetry_clear = command_write && avs_writedata[1];
+    assign fan_control_write = avs_chipselect && avs_write
+                             && (avs_address == REG_FAN_CONTROL);
     assign memory_drain_req = clock_change_req;
     assign clock_status = {
         24'b0,
@@ -177,8 +185,12 @@ module de10pro_board_manager #(
         .input_power_snapshot  (input_power_snapshot),
         .core_power_snapshot   (core_power_snapshot),
         .fan_full_on           (fan_full_on),
+        .fan_full_off          (fan_full_off),
         .fan_state_valid       (fan_state_valid),
         .fan_dac               (fan_dac),
+        .fan_control_mode      (fan_control_mode),
+        .fan_control_dac       (fan_control_dac),
+        .fan_control_update    (fan_control_write),
         .avs_read              (1'b0),
         .avs_write             (telemetry_clear),
         .avs_address           (4'hf),
@@ -249,8 +261,11 @@ module de10pro_board_manager #(
             REG_QUIESCE_STATUS: read_data_mux = quiesce_status;
             REG_CLOCK_ERROR:    read_data_mux = clock_error_code;
             REG_CLOCK_MEASURED: read_data_mux = measured_hz;
-            REG_FAN_STATUS:     read_data_mux = {16'b0, fan_dac, 6'b0,
+            REG_FAN_STATUS:     read_data_mux = {16'b0, fan_dac, 5'b0,
+                                                 fan_full_off,
                                                  fan_state_valid, fan_full_on};
+            REG_FAN_CONTROL:    read_data_mux = {16'b0, fan_control_dac,
+                                                 6'b0, fan_control_mode};
             default:            read_data_mux = 32'b0;
         endcase
     end
@@ -265,6 +280,8 @@ module de10pro_board_manager #(
             request_sequence <= 32'b0;
             clock_apply <= 1'b0;
             clock_clear_status <= 1'b0;
+            fan_control_mode <= 2'd0;
+            fan_control_dac <= 8'h20;
             pll_locked_sync <= 2'b0;
             change_ack_sync <= 2'b0;
             memory_drain_ack_sync <= 2'b0;
@@ -302,6 +319,14 @@ module de10pro_board_manager #(
                 if ((avs_address == REG_CLOCK_COMMAND) && avs_byteenable[0]) begin
                     clock_apply <= avs_writedata[0];
                     clock_clear_status <= avs_writedata[1];
+                end
+                if (avs_address == REG_FAN_CONTROL) begin
+                    if (avs_byteenable[0]) begin
+                        fan_control_mode <= avs_writedata[1:0];
+                    end
+                    if (avs_byteenable[1]) begin
+                        fan_control_dac <= avs_writedata[15:8];
+                    end
                 end
             end
         end

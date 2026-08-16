@@ -23,9 +23,9 @@ data on the next rising clock edge. Writes to the control register are pulses.
 The atomic snapshot is also available without Avalon through
 `snapshot_update`, `snapshot_sequence`, `snapshot_valid`, temperature,
 TACH0/1, and input/core power outputs. `snapshot_update` pulses for one cycle
-when all snapshot outputs are committed. `fan_state_valid`, `fan_full_on`, and
-`fan_dac` expose whether a control state has been acknowledged and its last
-confirmed value.
+when all snapshot outputs are committed. `fan_state_valid`, `fan_full_on`, `fan_full_off`, and `fan_dac` expose whether a control state has been acknowledged and its last
+confirmed value. `fan_control_mode`, `fan_control_dac`, and
+`fan_control_update` select automatic, forced-full, manual-DAC, or forced-off operation.
 
 ## Device initialization and polling
 
@@ -70,7 +70,7 @@ under `demo_ref/NIOS_BASIC_DEMO/software/DE10_Pro/`, notably `Fan.c`,
 | Word | Byte | Name | Contents |
 | ---: | ---: | --- | --- |
 | `0x0` | `0x00` | ID | `0x424d4754` (`BMGT`) |
-| `0x1` | `0x04` | VERSION | major 1, minor 0, 3 buses, 5 devices |
+| `0x1` | `0x04` | VERSION | major 1, minor 1, 3 buses, 5 devices |
 | `0x2` | `0x08` | STATUS | valid bitmap `[24:16]`; bus busy `[10:8]`; snapshot valid bit 5; configuration/startup/running `[4:0]` |
 | `0x3` | `0x0c` | SEQUENCE | increments after each atomic snapshot commit |
 | `0x4` | `0x10` | TEMPERATURE | remote byte `[15:8]`, local byte `[7:0]` |
@@ -87,14 +87,20 @@ under `demo_ref/NIOS_BASIC_DEMO/software/DE10_Pro/`, notably `Fan.c`,
 
 The STATUS valid bitmap uses bit 0 for temperature, bits 1-2 for TACH0/1,
 bits 3-5 for input sense/VIN/power, and bits 6-8 for core sense/VIN/power.
-Fan mode is 0 for unknown, 1 for confirmed full-on, and 2 for confirmed
-reduced open-loop operation.
+Fan mode is 0 for unknown, 1 for confirmed full-on, 2 for confirmed
+reduced open-loop operation, and 3 for confirmed full-off.
 
 The public `VXBM` wrapper exposes `FAN_STATUS` at byte offset `0x5c`. Bit 0 is
-`FULL_ON`, bit 1 is `VALID`, and bits `[15:8]` contain the last DAC value.
+`FULL_ON`, bit 1 is `VALID`, bit 2 is `FULL_OFF`, and bits `[15:8]` contain the last DAC value.
 `VALID` is zero after reset and becomes one only after an acknowledged MAX6651
 CONFIG control write, including an acknowledged fail-safe full-on write.
 Software must not interpret `FULL_ON` or the DAC field while `VALID` is zero.
+
+ABI 1.2 supports the public read/write `FAN_CONTROL` register at byte offset
+`0x60`. Bits `[1:0]` select automatic (`0`), forced full-on (`1`), manual DAC (`2`), or forced full-off (`3`); bits `[15:8]` hold the requested DAC value. Reset selects automatic
+mode with DAC `0x20`. Manual modes bypass temperature and non-fan sensor
+fail-safe decisions until software writes automatic mode again. A fan-bus
+write failure still prevents an unacknowledged state from becoming valid.
 
 ## I2C master
 

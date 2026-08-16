@@ -25,8 +25,12 @@ module board_mgmt_core #(
     output reg  [23:0] input_power_snapshot,
     output reg  [23:0] core_power_snapshot,
     output wire        fan_full_on,
+    output wire        fan_full_off,
     output wire        fan_state_valid,
     output wire [7:0]  fan_dac,
+    input  wire [1:0]  fan_control_mode,
+    input  wire [7:0]  fan_control_dac,
+    input  wire        fan_control_update,
 
     input  wire        avs_read,
     input  wire        avs_write,
@@ -68,6 +72,7 @@ module board_mgmt_core #(
 
     localparam [7:0] MAX6651_CONFIG_REGISTER = 8'h02;
     localparam [7:0] MAX6651_CONFIG_FULL_ON  = 8'h0a;
+    localparam [7:0] MAX6651_CONFIG_FULL_OFF = 8'h1a;
     localparam [7:0] MAX6651_CONFIG_OPEN_LOOP = 8'h3a;
     localparam [7:0] MAX6651_DAC_REGISTER     = 8'h06;
     localparam [7:0] MAX6651_DAC_REDUCED      = 8'h20;
@@ -79,6 +84,12 @@ module board_mgmt_core #(
     localparam [1:0] FAN_MODE_UNKNOWN = 2'd0;
     localparam [1:0] FAN_MODE_FULL_ON = 2'd1;
     localparam [1:0] FAN_MODE_REDUCED = 2'd2;
+    localparam [1:0] FAN_MODE_FULL_OFF = 2'd3;
+
+    localparam [1:0] FAN_CONTROL_AUTO = 2'd0;
+    localparam [1:0] FAN_CONTROL_FULL_ON = 2'd1;
+    localparam [1:0] FAN_CONTROL_MANUAL_DAC = 2'd2;
+    localparam [1:0] FAN_CONTROL_FULL_OFF = 2'd3;
 
     wire temp_scl_drive_low;
     wire temp_sda_drive_low;
@@ -190,6 +201,10 @@ module board_mgmt_core #(
     wire transaction_failed;
     wire clear_status_request;
     wire force_poll_request;
+    wire fan_control_auto;
+    wire fan_control_full_on;
+    wire fan_control_manual_dac;
+    wire fan_control_full_off;
 
     assign temp_scl = temp_scl_drive_low ? 1'b0 : 1'bz;
     assign temp_sda = temp_sda_drive_low ? 1'b0 : 1'bz;
@@ -200,16 +215,24 @@ module board_mgmt_core #(
 
     assign avs_waitrequest = 1'b0;
     assign fan_full_on = (fan_mode == FAN_MODE_FULL_ON);
+    assign fan_full_off = (fan_mode == FAN_MODE_FULL_OFF);
     assign fan_state_valid = (fan_mode != FAN_MODE_UNKNOWN);
     assign fan_dac = fan_dac_value;
+    assign fan_control_auto = (fan_control_mode == FAN_CONTROL_AUTO);
+    assign fan_control_full_on = (fan_control_mode == FAN_CONTROL_FULL_ON);
+    assign fan_control_manual_dac =
+        (fan_control_mode == FAN_CONTROL_MANUAL_DAC);
+    assign fan_control_full_off =
+        (fan_control_mode == FAN_CONTROL_FULL_OFF);
     assign clear_status_request = avs_write
                                 && (avs_address == 4'hf)
                                 && avs_byteenable[0]
                                 && avs_writedata[0];
-    assign force_poll_request = avs_write
+    assign force_poll_request = (avs_write
                               && (avs_address == 4'hf)
                               && avs_byteenable[0]
-                              && avs_writedata[1];
+                              && avs_writedata[1])
+                              || fan_control_update;
     assign transaction_short_read = command_read
                                   && (selected_read_count != command_read_length);
     assign transaction_failed = selected_error_nack
@@ -313,7 +336,9 @@ module board_mgmt_core #(
         case (scheduler_step)
             STEP_FAN_CONFIG: begin
                 step_has_command = ~fan_full_on_configured
-                                 || (failsafe_required
+                                 || ((fan_control_full_on
+                                   || (fan_control_auto
+                                    && failsafe_required))
                                   && (fan_mode != FAN_MODE_FULL_ON));
                 step_bus = BUS_FAN;
                 step_device_address = ADDRESS_MAX6651;
@@ -354,22 +379,41 @@ module board_mgmt_core #(
                 step_register_address = 8'h01;
             end
             STEP_POLICY_DAC: begin
-                step_has_command = temperature_remote_valid
-                                 && ~round_fault
-                                 && ~round_started_in_failsafe
-                                 && ~failsafe_required
-                                 && (temperature_shadow[15:8] < 8'd55)
-                                 && (fan_mode != FAN_MODE_REDUCED);
+                if (fan_control_manual_dac) begin
+                    step_has_command = (fan_mode != FAN_MODE_REDUCED)
+                                     || (fan_dac_value != fan_control_dac);
+                    step_write_data = fan_control_dac;
+                end else begin
+                    step_has_command = fan_control_auto
+                                     && temperature_remote_valid
+                                     && ~round_fault
+                                     && ~round_started_in_failsafe
+                                     && ~failsafe_required
+                                     && (temperature_shadow[15:8] < 8'd55)
+                                     && ((fan_mode != FAN_MODE_REDUCED)
+                                      || (fan_dac_value
+                                          != MAX6651_DAC_REDUCED));
+                    step_write_data = MAX6651_DAC_REDUCED;
+                end
                 step_bus = BUS_FAN;
                 step_device_address = ADDRESS_MAX6651;
                 step_register_address = MAX6651_DAC_REGISTER;
-                step_write_data = MAX6651_DAC_REDUCED;
             end
             STEP_POLICY_CONFIG: begin
                 step_bus = BUS_FAN;
                 step_device_address = ADDRESS_MAX6651;
                 step_register_address = MAX6651_CONFIG_REGISTER;
-                if (round_fault
+                if (fan_control_full_on) begin
+                    step_has_command = (fan_mode != FAN_MODE_FULL_ON);
+                    step_write_data = MAX6651_CONFIG_FULL_ON;
+                end else if (fan_control_full_off) begin
+                    step_has_command = (fan_mode != FAN_MODE_FULL_OFF);
+                    step_write_data = MAX6651_CONFIG_FULL_OFF;
+                end else if (fan_control_manual_dac) begin
+                    step_has_command = (fan_mode != FAN_MODE_REDUCED)
+                                     && fan_dac_ready;
+                    step_write_data = MAX6651_CONFIG_OPEN_LOOP;
+                end else if (round_fault
                  || failsafe_required
                  || round_started_in_failsafe
                  || ~temperature_remote_valid
@@ -441,7 +485,8 @@ module board_mgmt_core #(
                 step_read_length = 3'd3;
             end
             STEP_FAULT_FULL_ON: begin
-                step_has_command = (round_fault || failsafe_required)
+                step_has_command = fan_control_auto
+                                 && (round_fault || failsafe_required)
                                  && (fan_mode != FAN_MODE_FULL_ON);
                 step_bus = BUS_FAN;
                 step_device_address = ADDRESS_MAX6651;
@@ -661,7 +706,7 @@ module board_mgmt_core #(
                                 end
                             end
                             STEP_POLICY_DAC: begin
-                                fan_dac_value <= MAX6651_DAC_REDUCED;
+                                fan_dac_value <= command_write_data;
                                 fan_dac_ready <= 1'b1;
                             end
                             STEP_POLICY_CONFIG: begin
@@ -669,6 +714,9 @@ module board_mgmt_core #(
                                 if (command_write_data == MAX6651_CONFIG_FULL_ON) begin
                                     fan_full_on_configured <= 1'b1;
                                     fan_mode <= FAN_MODE_FULL_ON;
+                                end else if (command_write_data
+                                         == MAX6651_CONFIG_FULL_OFF) begin
+                                    fan_mode <= FAN_MODE_FULL_OFF;
                                 end else begin
                                     fan_mode <= FAN_MODE_REDUCED;
                                 end
