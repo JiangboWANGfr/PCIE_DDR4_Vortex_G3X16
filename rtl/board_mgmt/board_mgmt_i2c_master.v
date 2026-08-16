@@ -63,6 +63,12 @@ module board_mgmt_i2c_master #(
     localparam [4:0] STATE_RECOVER_STOP_LOW      = 5'd21;
     localparam [4:0] STATE_RECOVER_STOP_HIGH     = 5'd22;
     localparam [4:0] STATE_RECOVER_STOP_RELEASE  = 5'd23;
+    // Data-hold phases: SCL is driven low for one extra phase so SDA never
+    // changes on the same edge that SCL falls (I2C tHD;DAT).
+    localparam [4:0] STATE_WRITE_HOLD            = 5'd24;
+    localparam [4:0] STATE_ACK_HOLD              = 5'd25;
+    localparam [4:0] STATE_READ_HOLD             = 5'd26;
+    localparam [4:0] STATE_START_HOLD_LOW        = 5'd27;
 
     localparam [1:0] BYTE_ADDRESS_WRITE = 2'd0;
     localparam [1:0] BYTE_REGISTER      = 2'd1;
@@ -122,7 +128,21 @@ module board_mgmt_i2c_master #(
                 waiting_for_scl_high = 1'b1;
                 sda_drive_low = ~tx_shift[7];
             end
+            STATE_WRITE_HOLD: begin
+                scl_drive_low = 1'b1;
+                sda_drive_low = ~tx_shift[7];
+            end
+            STATE_START_HOLD_LOW: begin
+                scl_drive_low = 1'b1;
+                sda_drive_low = 1'b1;
+            end
             STATE_ACK_LOW: begin
+                scl_drive_low = 1'b1;
+            end
+            STATE_ACK_HOLD: begin
+                scl_drive_low = 1'b1;
+            end
+            STATE_READ_HOLD: begin
                 scl_drive_low = 1'b1;
             end
             STATE_ACK_HIGH: begin
@@ -294,6 +314,9 @@ module board_mgmt_i2c_master #(
                                 if (sda_sync[1]) begin
                                     drive_fault_sda <= 1'b1;
                                 end
+                                state <= STATE_START_HOLD_LOW;
+                            end
+                            STATE_START_HOLD_LOW: begin
                                 state <= STATE_WRITE_LOW;
                             end
                             STATE_WRITE_LOW: begin
@@ -306,6 +329,9 @@ module board_mgmt_i2c_master #(
                                 state <= STATE_WRITE_HIGH;
                             end
                             STATE_WRITE_HIGH: begin
+                                state <= STATE_WRITE_HOLD;
+                            end
+                            STATE_WRITE_HOLD: begin
                                 if (bit_index == 0) begin
                                     state <= STATE_ACK_LOW;
                                 end else begin
@@ -327,7 +353,7 @@ module board_mgmt_i2c_master #(
                                             byte_kind <= BYTE_REGISTER;
                                             tx_shift <= register_address;
                                             bit_index <= 3'd7;
-                                            state <= STATE_WRITE_LOW;
+                                            state <= STATE_ACK_HOLD;
                                         end
                                         BYTE_REGISTER: begin
                                             if (command_read) begin
@@ -336,7 +362,7 @@ module board_mgmt_i2c_master #(
                                                 byte_kind <= BYTE_DATA;
                                                 tx_shift <= write_data;
                                                 bit_index <= 3'd7;
-                                                state <= STATE_WRITE_LOW;
+                                                state <= STATE_ACK_HOLD;
                                             end
                                         end
                                         BYTE_DATA: begin
@@ -354,6 +380,9 @@ module board_mgmt_i2c_master #(
                                     endcase
                                 end
                             end
+                            STATE_ACK_HOLD: begin
+                                state <= STATE_WRITE_LOW;
+                            end
                             STATE_RESTART_LOW: begin
                                 state <= STATE_RESTART_HIGH;
                             end
@@ -364,7 +393,7 @@ module board_mgmt_i2c_master #(
                                 byte_kind <= BYTE_ADDRESS_READ;
                                 tx_shift <= {device_address, 1'b1};
                                 bit_index <= 3'd7;
-                                state <= STATE_WRITE_LOW;
+                                state <= STATE_START_HOLD_LOW;
                             end
                             STATE_READ_LOW: begin
                                 state <= STATE_READ_HIGH;
@@ -372,11 +401,14 @@ module board_mgmt_i2c_master #(
                             STATE_READ_HIGH: begin
                                 rx_shift <= {rx_shift[6:0], sda_sync[1]};
                                 if (bit_index == 0) begin
-                                    state <= STATE_READ_ACK_LOW;
+                                    state <= STATE_READ_HOLD;
                                 end else begin
                                     bit_index <= bit_index - 1'b1;
                                     state <= STATE_READ_LOW;
                                 end
+                            end
+                            STATE_READ_HOLD: begin
+                                state <= STATE_READ_ACK_LOW;
                             end
                             STATE_READ_ACK_LOW: begin
                                 state <= STATE_READ_ACK_HIGH;

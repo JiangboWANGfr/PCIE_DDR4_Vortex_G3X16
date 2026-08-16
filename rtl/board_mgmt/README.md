@@ -128,6 +128,14 @@ The master reports NACK, clock-stretch timeout, and stuck-bus errors. If a bus
 is not idle when a command starts, it releases SDA, emits nine SCL recovery
 pulses, issues STOP, and retries the command only if both lines are released.
 
+Every SCL falling edge is followed by a full phase in which SDA keeps its
+previous value, so SDA never starts being pulled low on the same edge that SCL
+is pulled low; a slave would otherwise be free to read that pair as a START
+condition. This costs one phase per bit, so SCL runs at two thirds of
+`I2C_FREQ_HZ` (66.7 kHz at the 100 kHz default). Shortening the phase to
+restore 100 kHz would drop tHIGH below the 4.0 us standard-mode minimum, so the
+divisor is left alone.
+
 While the master is actively pulling a line low it samples that line back. If
 SCL still reads high at the end of a driven-low phase, or SDA still reads high
 at the end of the START hold, the master raises `drive_fault_scl` or

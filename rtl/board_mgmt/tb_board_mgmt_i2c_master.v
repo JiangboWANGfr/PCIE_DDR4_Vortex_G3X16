@@ -113,6 +113,20 @@ module tb_board_mgmt_i2c_master;
         #125 clk = ~clk;
     end
 
+    // I2C tHD;DAT: SDA must never start being pulled low on the same edge that
+    // SCL is pulled low, or a slave can read the pair as a START condition.
+    reg prev_scl_drive;
+    reg prev_sda_drive;
+    always @(negedge clk) begin
+        if (!reset && !prev_scl_drive && scl_drive_low
+         && !prev_sda_drive && sda_drive_low) begin
+            $fatal(1, "SDA pulled low on the same edge as SCL (tHD;DAT violation), state=%0d",
+                dut.state);
+        end
+        prev_scl_drive <= scl_drive_low;
+        prev_sda_drive <= sda_drive_low;
+    end
+
     task issue_command;
         input       is_read;
         input [7:0] register_value;
