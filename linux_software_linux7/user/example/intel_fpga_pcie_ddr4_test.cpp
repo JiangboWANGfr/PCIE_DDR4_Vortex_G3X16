@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cctype>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -9,9 +10,7 @@
 
 namespace {
 
-const uint64_t kDdr4Base = 0x800000000ULL;
 const uint64_t kDriverEndpointBias = 0x10000ULL;
-const uint64_t kDdr4EndpointOffset = kDdr4Base - kDriverEndpointBias;
 const unsigned int kTransferBytes = 4096;
 
 uint32_t test_pattern(unsigned int index)
@@ -30,8 +29,22 @@ double mib_per_second(unsigned int bytes, unsigned int microseconds)
 
 } // namespace
 
-int main()
+int main(int argc, char **argv)
 {
+    if (argc != 2 || argv[1][1] != '\0') {
+        std::cerr << "Usage: " << argv[0] << " <A|B|C|D>\n";
+        return 2;
+    }
+
+    const char channel = std::toupper(static_cast<unsigned char>(argv[1][0]));
+    if (channel < 'A' || channel > 'D') {
+        std::cerr << "Invalid DDR4 channel: " << argv[1] << "\n";
+        return 2;
+    }
+    const uint64_t ddr4_base = 0x800000000ULL +
+                               static_cast<uint64_t>(channel - 'A') * 0x200000000ULL;
+    const uint64_t endpoint_offset = ddr4_base - kDriverEndpointBias;
+
     try {
         intel_fpga_pcie_dev dev(0, -1);
 
@@ -51,11 +64,11 @@ int main()
         for (unsigned int i = 0; i < word_count; ++i)
             words[i] = test_pattern(i);
 
-        std::cout << "DDR4 DMA smoke test\n"
-                  << "  FPGA address: 0x" << std::hex << kDdr4Base << std::dec << "\n"
+        std::cout << "DDR4" << channel << " DMA smoke test\n"
+                  << "  FPGA address: 0x" << std::hex << ddr4_base << std::dec << "\n"
                   << "  Transfer:     " << kTransferBytes << " bytes\n";
 
-        if (!dev.dma_queue_write(kDdr4EndpointOffset, kTransferBytes, 0) ||
+        if (!dev.dma_queue_write(endpoint_offset, kTransferBytes, 0) ||
             !dev.dma_send_write()) {
             std::cerr << "Host-to-DDR4 DMA failed\n";
             dev.kmem_munmap(mapping, kTransferBytes);
@@ -65,7 +78,7 @@ int main()
 
         std::memset(mapping, 0, kTransferBytes);
 
-        if (!dev.dma_queue_read(kDdr4EndpointOffset, kTransferBytes, 0) ||
+        if (!dev.dma_queue_read(endpoint_offset, kTransferBytes, 0) ||
             !dev.dma_send_read()) {
             std::cerr << "DDR4-to-host DMA failed\n";
             dev.kmem_munmap(mapping, kTransferBytes);
