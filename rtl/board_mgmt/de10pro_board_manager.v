@@ -43,8 +43,8 @@ module de10pro_board_manager #(
 );
 
     localparam [31:0] MAGIC_VALUE = 32'h5658424d;
-    localparam [31:0] VERSION_VALUE = 32'h00010002;
-    localparam [31:0] CAPABILITIES = 32'h000007ff;
+    localparam [31:0] VERSION_VALUE = 32'h00010005;
+    localparam [31:0] CAPABILITIES = 32'h00000fff;
     localparam [31:0] POWER_INPUT_LSB_NW = 32'd208435;
     localparam [31:0] POWER_CORE_LSB_NW = 32'd5002440;
 
@@ -73,10 +73,14 @@ module de10pro_board_manager #(
     localparam [7:0] REG_CLOCK_MEASURED = 8'h58;
     localparam [7:0] REG_FAN_STATUS     = 8'h5c;
     localparam [7:0] REG_FAN_CONTROL    = 8'h60;
+    localparam [7:0] REG_SENSOR_VALID   = 8'h64;
+    localparam [7:0] REG_I2C_ERROR      = 8'h68;
 
     wire snapshot_update;
     wire [31:0] snapshot_sequence;
     wire [8:0] snapshot_valid;
+    wire [8:0] sensor_valid;
+    wire [5:0] drive_fault_sticky;
     wire [15:0] temperature_snapshot;
     wire [7:0] tach0_snapshot;
     wire [7:0] tach1_snapshot;
@@ -86,6 +90,7 @@ module de10pro_board_manager #(
     wire fan_full_off;
     wire fan_state_valid;
     wire [7:0] fan_dac;
+    wire [31:0] i2c_error;
     wire [31:0] raw_readdata;
     wire raw_readdatavalid;
     wire raw_waitrequest;
@@ -179,6 +184,8 @@ module de10pro_board_manager #(
         .snapshot_update       (snapshot_update),
         .snapshot_sequence     (snapshot_sequence),
         .snapshot_valid        (snapshot_valid),
+        .sensor_valid          (sensor_valid),
+        .drive_fault_sticky    (drive_fault_sticky),
         .temperature_snapshot  (temperature_snapshot),
         .tach0_snapshot        (tach0_snapshot),
         .tach1_snapshot        (tach1_snapshot),
@@ -188,6 +195,7 @@ module de10pro_board_manager #(
         .fan_full_off          (fan_full_off),
         .fan_state_valid       (fan_state_valid),
         .fan_dac               (fan_dac),
+        .i2c_error             (i2c_error),
         .fan_control_mode      (fan_control_mode),
         .fan_control_dac       (fan_control_dac),
         .fan_control_update    (fan_control_write),
@@ -266,6 +274,9 @@ module de10pro_board_manager #(
                                                  fan_state_valid, fan_full_on};
             REG_FAN_CONTROL:    read_data_mux = {16'b0, fan_control_dac,
                                                  6'b0, fan_control_mode};
+            REG_SENSOR_VALID:   read_data_mux = {17'b0, drive_fault_sticky,
+                                                 sensor_valid};
+            REG_I2C_ERROR:      read_data_mux = i2c_error;
             default:            read_data_mux = 32'b0;
         endcase
     end

@@ -81,7 +81,7 @@ under `demo_ref/NIOS_BASIC_DEMO/software/DE10_Pro/`, notably `Fan.c`,
 | `0x9` | `0x24` | CORE_SENSE | raw big-endian 16-bit value |
 | `0xa` | `0x28` | CORE_VIN | raw big-endian 16-bit value |
 | `0xb` | `0x2c` | CORE_POWER | raw big-endian 24-bit value |
-| `0xc` | `0x30` | ERROR | count `[15:0]`, last step low bits `[19:16]`, bus `[21:20]`, NACK/timeout/stuck/short `[25:22]`, sticky buses `[28:26]`, last step high bit 29 |
+| `0xc` | `0x30` | ERROR | count `[15:0]`, last step low bits `[19:16]`, bus `[21:20]`, NACK/timeout/stuck/short `[25:22]`, sticky buses `[28:26]`, last step high bit 29, unacknowledged byte `[31:30]` |
 | `0xe` | `0x38` | SCHEDULER | step low `[3:0]`, bus `[5:4]`, recovery sticky `[10:8]`, step high bit 11, fan mode `[13:12]`, CONFIG `[21:14]`, DAC `[29:22]`, fail-safe bit 30, round-fault bit 31 |
 | `0xf` | `0x3c` | CONTROL | write-one pulse: clear sticky/error bit 0, force poll bit 1 |
 
@@ -102,6 +102,21 @@ mode with DAC `0x20`. Manual modes bypass temperature and non-fan sensor
 fail-safe decisions until software writes automatic mode again. A fan-bus
 write failure still prevents an unacknowledged state from becoming valid.
 
+ABI 1.3 exposes `SENSOR_VALID` at byte offset `0x64` and the sensor engine's
+packed `I2C_ERROR` register at `0x68`, so software can identify the failed
+sensor transaction without treating a partial round as valid telemetry.
+ABI 1.4 adds bits `[31:30]` of that register, reporting which byte of the
+failed transaction was not acknowledged: `0` device address (write), `1`
+register address, `2` write data, `3` device address (read, after the repeated
+start). The field is only meaningful when the NACK bit is set, and it reads as
+zero on ABI 1.3, so software must check the minor version before reporting it.
+
+ABI 1.5 adds sticky per-bus drive-fault bits to `SENSOR_VALID` at byte offset
+`0x64`: bits `[11:9]` for SCL and bits `[14:12]` for SDA, indexed by bus
+(0 temperature, 1 fan, 2 power). A set bit means the master drove that line low
+for a full phase and still read it high. They read as zero before ABI 1.5.
+`CONTROL` bit 0 clears them along with the other sticky error state.
+
 ## I2C master
 
 `board_mgmt_i2c_master` accepts one register transaction at a time. It supports
@@ -112,6 +127,13 @@ three-byte read occupies `[23:0]`, with the first byte most significant.
 The master reports NACK, clock-stretch timeout, and stuck-bus errors. If a bus
 is not idle when a command starts, it releases SDA, emits nine SCL recovery
 pulses, issues STOP, and retries the command only if both lines are released.
+
+While the master is actively pulling a line low it samples that line back. If
+SCL still reads high at the end of a driven-low phase, or SDA still reads high
+at the end of the START hold, the master raises `drive_fault_scl` or
+`drive_fault_sda`. That separates "the bus was driven and nobody answered" from
+"the drive never reached the wire", which the NACK and timeout flags alone
+cannot distinguish.
 
 ## Vortex memory drain monitor
 

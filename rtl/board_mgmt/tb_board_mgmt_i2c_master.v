@@ -19,6 +19,11 @@ module tb_board_mgmt_i2c_master;
     wire error_timeout;
     wire error_bus_stuck;
     wire recovery_performed;
+    wire drive_fault_scl;
+    wire drive_fault_sda;
+    wire deaf_done;
+    wire deaf_drive_fault_scl;
+    wire deaf_drive_fault_sda;
     wire scl_drive_low;
     wire sda_drive_low;
     tri1 scl;
@@ -54,11 +59,46 @@ module tb_board_mgmt_i2c_master;
         .error_nack           (error_nack),
         .error_timeout        (error_timeout),
         .error_bus_stuck      (error_bus_stuck),
+        .drive_fault_scl      (drive_fault_scl),
+        .drive_fault_sda      (drive_fault_sda),
         .recovery_performed   (recovery_performed),
         .scl_i                (scl),
         .sda_i                (sda),
         .scl_drive_low        (scl_drive_low),
         .sda_drive_low        (sda_drive_low)
+    );
+
+    // Same commands, but the pad inputs are stuck high: this models a bus the
+    // master drives without the levels ever reaching the wire.
+    board_mgmt_i2c_master #(
+        .CLK_FREQ_HZ    (4000000),
+        .I2C_FREQ_HZ    (100000),
+        .TIMEOUT_CYCLES (80)
+    ) deaf (
+        .clk                  (clk),
+        .reset                (reset),
+        .cmd_valid            (cmd_valid),
+        .cmd_ready            (),
+        .cmd_read             (cmd_read),
+        .cmd_device_address   (cmd_device_address),
+        .cmd_register_address (cmd_register_address),
+        .cmd_write_data       (cmd_write_data),
+        .cmd_read_length      (cmd_read_length),
+        .busy                 (),
+        .done                 (deaf_done),
+        .read_data            (),
+        .read_count           (),
+        .error_nack           (),
+        .error_timeout        (),
+        .error_bus_stuck      (),
+        .error_byte_kind      (),
+        .drive_fault_scl      (deaf_drive_fault_scl),
+        .drive_fault_sda      (deaf_drive_fault_sda),
+        .recovery_performed   (),
+        .scl_i                (1'b1),
+        .sda_i                (1'b1),
+        .scl_drive_low        (),
+        .sda_drive_low        ()
     );
 
     tb_i2c_slave_model #(
@@ -203,6 +243,15 @@ module tb_board_mgmt_i2c_master;
         hold_scl_low = 1'b0;
         if (!error_timeout || !recovery_performed) begin
             $fatal(1, "clock-low timeout was not reported");
+        end
+
+        if (drive_fault_scl || drive_fault_sda) begin
+            $fatal(1, "drive fault reported on a healthy bus: scl=%b sda=%b",
+                drive_fault_scl, drive_fault_sda);
+        end
+        if (!deaf_drive_fault_scl || !deaf_drive_fault_sda) begin
+            $fatal(1, "drive fault not reported when the bus ignores the drive: scl=%b sda=%b",
+                deaf_drive_fault_scl, deaf_drive_fault_sda);
         end
 
         $display("PASS: board_mgmt_i2c_master");

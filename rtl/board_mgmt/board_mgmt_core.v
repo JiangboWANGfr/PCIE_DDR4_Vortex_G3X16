@@ -19,6 +19,7 @@ module board_mgmt_core #(
     output reg         snapshot_update,
     output reg  [31:0] snapshot_sequence,
     output reg  [8:0]  snapshot_valid,
+    output reg  [8:0]  sensor_valid,
     output reg  [15:0] temperature_snapshot,
     output reg  [7:0]  tach0_snapshot,
     output reg  [7:0]  tach1_snapshot,
@@ -28,6 +29,8 @@ module board_mgmt_core #(
     output wire        fan_full_off,
     output wire        fan_state_valid,
     output wire [7:0]  fan_dac,
+    output wire [31:0] i2c_error,
+    output wire [5:0]  drive_fault_sticky,
     input  wire [1:0]  fan_control_mode,
     input  wire [7:0]  fan_control_dac,
     input  wire        fan_control_update,
@@ -105,6 +108,9 @@ module board_mgmt_core #(
     wire temp_error_nack;
     wire temp_error_timeout;
     wire temp_error_bus_stuck;
+    wire [1:0] temp_error_byte_kind;
+    wire temp_drive_fault_scl;
+    wire temp_drive_fault_sda;
     wire temp_recovery_performed;
 
     wire fan_busy;
@@ -114,6 +120,9 @@ module board_mgmt_core #(
     wire fan_error_nack;
     wire fan_error_timeout;
     wire fan_error_bus_stuck;
+    wire [1:0] fan_error_byte_kind;
+    wire fan_drive_fault_scl;
+    wire fan_drive_fault_sda;
     wire fan_recovery_performed;
 
     wire power_busy;
@@ -123,6 +132,9 @@ module board_mgmt_core #(
     wire power_error_nack;
     wire power_error_timeout;
     wire power_error_bus_stuck;
+    wire [1:0] power_error_byte_kind;
+    wire power_drive_fault_scl;
+    wire power_drive_fault_sda;
     wire power_recovery_performed;
 
     reg command_start;
@@ -147,6 +159,9 @@ module board_mgmt_core #(
     reg selected_error_nack;
     reg selected_error_timeout;
     reg selected_error_bus_stuck;
+    reg [1:0] selected_error_byte_kind;
+    reg selected_drive_fault_scl;
+    reg selected_drive_fault_sda;
     reg selected_recovery_performed;
 
     reg [31:0] startup_counter;
@@ -194,8 +209,11 @@ module board_mgmt_core #(
     reg last_error_timeout;
     reg last_error_bus_stuck;
     reg last_error_short_read;
+    reg [1:0] last_error_byte_kind;
     reg [2:0] error_bus_sticky;
     reg [2:0] recovery_bus_sticky;
+    reg [2:0] scl_drive_sticky;
+    reg [2:0] sda_drive_sticky;
 
     wire transaction_short_read;
     wire transaction_failed;
@@ -218,6 +236,19 @@ module board_mgmt_core #(
     assign fan_full_off = (fan_mode == FAN_MODE_FULL_OFF);
     assign fan_state_valid = (fan_mode != FAN_MODE_UNKNOWN);
     assign fan_dac = fan_dac_value;
+    assign drive_fault_sticky = {sda_drive_sticky, scl_drive_sticky};
+    assign i2c_error = {
+        last_error_byte_kind,
+        last_error_step[4],
+        error_bus_sticky,
+        last_error_short_read,
+        last_error_bus_stuck,
+        last_error_timeout,
+        last_error_nack,
+        last_error_bus,
+        last_error_step[3:0],
+        error_count
+    };
     assign fan_control_auto = (fan_control_mode == FAN_CONTROL_AUTO);
     assign fan_control_full_on = (fan_control_mode == FAN_CONTROL_FULL_ON);
     assign fan_control_manual_dac =
@@ -261,6 +292,9 @@ module board_mgmt_core #(
         .error_nack           (temp_error_nack),
         .error_timeout        (temp_error_timeout),
         .error_bus_stuck      (temp_error_bus_stuck),
+        .error_byte_kind      (temp_error_byte_kind),
+        .drive_fault_scl      (temp_drive_fault_scl),
+        .drive_fault_sda      (temp_drive_fault_sda),
         .recovery_performed   (temp_recovery_performed),
         .scl_i                (temp_scl),
         .sda_i                (temp_sda),
@@ -289,6 +323,9 @@ module board_mgmt_core #(
         .error_nack           (fan_error_nack),
         .error_timeout        (fan_error_timeout),
         .error_bus_stuck      (fan_error_bus_stuck),
+        .error_byte_kind      (fan_error_byte_kind),
+        .drive_fault_scl      (fan_drive_fault_scl),
+        .drive_fault_sda      (fan_drive_fault_sda),
         .recovery_performed   (fan_recovery_performed),
         .scl_i                (fan_scl),
         .sda_i                (fan_sda),
@@ -317,6 +354,9 @@ module board_mgmt_core #(
         .error_nack           (power_error_nack),
         .error_timeout        (power_error_timeout),
         .error_bus_stuck      (power_error_bus_stuck),
+        .error_byte_kind      (power_error_byte_kind),
+        .drive_fault_scl      (power_drive_fault_scl),
+        .drive_fault_sda      (power_drive_fault_sda),
         .recovery_performed   (power_recovery_performed),
         .scl_i                (power_scl),
         .sda_i                (power_sda),
@@ -506,6 +546,9 @@ module board_mgmt_core #(
         selected_error_nack = 1'b0;
         selected_error_timeout = 1'b0;
         selected_error_bus_stuck = 1'b0;
+        selected_error_byte_kind = 2'b0;
+        selected_drive_fault_scl = 1'b0;
+        selected_drive_fault_sda = 1'b0;
         selected_recovery_performed = 1'b0;
 
         case (command_bus)
@@ -516,6 +559,9 @@ module board_mgmt_core #(
                 selected_error_nack = temp_error_nack;
                 selected_error_timeout = temp_error_timeout;
                 selected_error_bus_stuck = temp_error_bus_stuck;
+                selected_error_byte_kind = temp_error_byte_kind;
+                selected_drive_fault_scl = temp_drive_fault_scl;
+                selected_drive_fault_sda = temp_drive_fault_sda;
                 selected_recovery_performed = temp_recovery_performed;
             end
             BUS_FAN: begin
@@ -525,6 +571,9 @@ module board_mgmt_core #(
                 selected_error_nack = fan_error_nack;
                 selected_error_timeout = fan_error_timeout;
                 selected_error_bus_stuck = fan_error_bus_stuck;
+                selected_error_byte_kind = fan_error_byte_kind;
+                selected_drive_fault_scl = fan_drive_fault_scl;
+                selected_drive_fault_sda = fan_drive_fault_sda;
                 selected_recovery_performed = fan_recovery_performed;
             end
             BUS_POWER: begin
@@ -534,6 +583,9 @@ module board_mgmt_core #(
                 selected_error_nack = power_error_nack;
                 selected_error_timeout = power_error_timeout;
                 selected_error_bus_stuck = power_error_bus_stuck;
+                selected_error_byte_kind = power_error_byte_kind;
+                selected_drive_fault_scl = power_drive_fault_scl;
+                selected_drive_fault_sda = power_drive_fault_sda;
                 selected_recovery_performed = power_recovery_performed;
             end
             default: begin
@@ -593,6 +645,7 @@ module board_mgmt_core #(
             core_vin_snapshot <= 16'b0;
             core_power_snapshot <= 24'b0;
             snapshot_valid <= 9'b0;
+            sensor_valid <= 9'b0;
             snapshot_sequence <= 32'b0;
             snapshot_update <= 1'b0;
 
@@ -603,8 +656,11 @@ module board_mgmt_core #(
             last_error_timeout <= 1'b0;
             last_error_bus_stuck <= 1'b0;
             last_error_short_read <= 1'b0;
+            last_error_byte_kind <= 2'b0;
             error_bus_sticky <= 3'b0;
             recovery_bus_sticky <= 3'b0;
+            scl_drive_sticky <= 3'b0;
+            sda_drive_sticky <= 3'b0;
 
         end else begin
             command_start <= 1'b0;
@@ -618,8 +674,11 @@ module board_mgmt_core #(
                 last_error_timeout <= 1'b0;
                 last_error_bus_stuck <= 1'b0;
                 last_error_short_read <= 1'b0;
+            last_error_byte_kind <= 2'b0;
                 error_bus_sticky <= 3'b0;
                 recovery_bus_sticky <= 3'b0;
+            scl_drive_sticky <= 3'b0;
+            sda_drive_sticky <= 3'b0;
             end
 
             if (force_poll_request) begin
@@ -665,6 +724,13 @@ module board_mgmt_core #(
                         recovery_bus_sticky[command_bus] <= 1'b1;
                     end
 
+                    if (selected_drive_fault_scl) begin
+                        scl_drive_sticky[command_bus] <= 1'b1;
+                    end
+                    if (selected_drive_fault_sda) begin
+                        sda_drive_sticky[command_bus] <= 1'b1;
+                    end
+
                     if (transaction_failed) begin
                         failsafe_required <= 1'b1;
                         round_fault <= 1'b1;
@@ -677,6 +743,7 @@ module board_mgmt_core #(
                         last_error_timeout <= selected_error_timeout;
                         last_error_bus_stuck <= selected_error_bus_stuck;
                         last_error_short_read <= transaction_short_read;
+                        last_error_byte_kind <= selected_error_byte_kind;
                         error_bus_sticky[command_bus] <= 1'b1;
                     end else begin
                         case (scheduler_step)
@@ -776,6 +843,7 @@ module board_mgmt_core #(
                 core_vin_snapshot <= core_vin_shadow;
                 core_power_snapshot <= core_power_shadow;
                 snapshot_valid <= round_fault ? 9'b0 : round_valid;
+                sensor_valid <= round_valid;
                 snapshot_sequence <= snapshot_sequence + 1'b1;
                 snapshot_update <= 1'b1;
                 if (!round_fault && (round_valid == 9'h1ff)) begin
@@ -832,18 +900,7 @@ module board_mgmt_core #(
                     4'h9: avs_readdata <= {16'b0, core_sense_snapshot};
                     4'ha: avs_readdata <= {16'b0, core_vin_snapshot};
                     4'hb: avs_readdata <= {8'b0, core_power_snapshot};
-                    4'hc: avs_readdata <= {
-                        2'b0,
-                        last_error_step[4],
-                        error_bus_sticky,
-                        last_error_short_read,
-                        last_error_bus_stuck,
-                        last_error_timeout,
-                        last_error_nack,
-                        last_error_bus,
-                        last_error_step[3:0],
-                        error_count
-                    };
+                    4'hc: avs_readdata <= i2c_error;
                     4'he: avs_readdata <= {
                         round_fault,
                         failsafe_required,

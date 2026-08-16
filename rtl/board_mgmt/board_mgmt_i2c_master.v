@@ -23,6 +23,9 @@ module board_mgmt_i2c_master #(
     output reg         error_nack,
     output reg         error_timeout,
     output reg         error_bus_stuck,
+    output wire [1:0]  error_byte_kind,
+    output reg         drive_fault_scl,
+    output reg         drive_fault_sda,
     output reg         recovery_performed,
 
     input  wire        scl_i,
@@ -90,6 +93,9 @@ module board_mgmt_i2c_master #(
     wire phase_tick;
 
     assign cmd_ready = ~busy;
+    // byte_kind is not advanced on the NACK path, so it still identifies the
+    // byte that was not acknowledged when done pulses.
+    assign error_byte_kind = byte_kind;
     assign clock_can_advance = ~waiting_for_scl_high | scl_sync[1];
     assign phase_tick = busy
                       && clock_can_advance
@@ -227,6 +233,8 @@ module board_mgmt_i2c_master #(
             error_timeout <= 1'b0;
             error_bus_stuck <= 1'b0;
             recovery_performed <= 1'b0;
+            drive_fault_scl <= 1'b0;
+            drive_fault_sda <= 1'b0;
         end else begin
             done <= 1'b0;
 
@@ -253,6 +261,8 @@ module board_mgmt_i2c_master #(
                 error_timeout <= 1'b0;
                 error_bus_stuck <= 1'b0;
                 recovery_performed <= 1'b0;
+                drive_fault_scl <= 1'b0;
+                drive_fault_sda <= 1'b0;
                 if (scl_sync[1] && sda_sync[1]) begin
                     state <= STATE_START_SETUP;
                 end else begin
@@ -278,9 +288,21 @@ module board_mgmt_i2c_master #(
                                 state <= STATE_START_HOLD;
                             end
                             STATE_START_HOLD: begin
+                                // SDA has been driven low for a full phase; if
+                                // it still reads high the drive is not reaching
+                                // the wire.
+                                if (sda_sync[1]) begin
+                                    drive_fault_sda <= 1'b1;
+                                end
                                 state <= STATE_WRITE_LOW;
                             end
                             STATE_WRITE_LOW: begin
+                                // SCL has been driven low for a full phase; if
+                                // it still reads high the drive is not reaching
+                                // the wire.
+                                if (scl_sync[1]) begin
+                                    drive_fault_scl <= 1'b1;
+                                end
                                 state <= STATE_WRITE_HIGH;
                             end
                             STATE_WRITE_HIGH: begin
