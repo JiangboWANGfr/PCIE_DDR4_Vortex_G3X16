@@ -190,10 +190,8 @@ module vortex_de10pro_top(
       ///////// I2Cs /////////
       inout              FAN_I2C_SCL,
       inout              FAN_I2C_SDA,
-      input              FAN_ALERT_n,
       inout              POWER_MONITOR_I2C_SCL,
       inout              POWER_MONITOR_I2C_SDA,
-      input              POWER_MONITOR_ALERT_n,
       inout              TEMP_I2C_SCL,
       inout              TEMP_I2C_SDA,
 
@@ -361,6 +359,17 @@ pcie_ddr4_system u_pcie_ddr4_system (
 		.pcie_rstn_npor                          (any_rstn_rr),                          //   input,   width = 1,     pcie_rstn.npor
 		.pcie_rstn_pin_perst                     (PCIE_PERST_n),                     //   input,   width = 1,              .pin_perst
 		.hip_ctrl_test_in                        (hip_ctrl_test_in),                        //   input,  width = 67,              .test_in
+		.mgmt_clk_50_b2c_clk                     (CLK_50_B2C),
+		.mgmt_reset_req_reset                    (~any_rstn_rr),
+		.vortex_refclk_50_b3i_clk                (CLK_50_B3I),
+		.pll_ref_reset_req_reset                 (~any_rstn_rr),
+		.vortex_reset_req_reset                  (~any_rstn_rr),
+		.board_management_temp_scl               (TEMP_I2C_SCL),
+		.board_management_temp_sda               (TEMP_I2C_SDA),
+		.board_management_fan_scl                (FAN_I2C_SCL),
+		.board_management_fan_sda                (FAN_I2C_SDA),
+		.board_management_power_scl              (POWER_MONITOR_I2C_SCL),
+		.board_management_power_sda              (POWER_MONITOR_I2C_SDA),
 
 		.xcvr_rx_in0                             (PCIE_RX_p[0]),                             //   input,   width = 1,          xcvr.rx_in0
 		.xcvr_rx_in1                             (PCIE_RX_p[1]),                             //   input,   width = 1,              .rx_in1
