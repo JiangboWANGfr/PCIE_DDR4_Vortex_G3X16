@@ -15,7 +15,6 @@ PROJECT_NAME=vortex_g3x16_ddr4x4
 PART=1SG280HU1F50E1VG
 VORTEX_HOME=${VORTEX_HOME:-$PROJECT_DIR/../../vortexCrypto}
 QUARTUS_ROOT=${QUARTUS_ROOT:-/data/Quartus/tools/19.2/quartus}
-QSYS_ROOT=${QSYS_ROOT:-$QUARTUS_ROOT/../qsys}
 PREPARE=$VORTEX_HOME/hw/syn/altera/de10pro/prepare_project.sh
 RESULTS_DIR=$PROJECT_DIR/results
 
@@ -37,7 +36,7 @@ for profile in "$@"; do
     fi
 done
 
-for tool in "$PREPARE" "$QUARTUS_ROOT/bin/quartus_sh" "$QSYS_ROOT/bin/qsys-generate"; do
+for tool in "$PREPARE" "$QUARTUS_ROOT/bin/quartus_sh"; do
     if [[ ! -x $tool ]]; then
         echo "error: missing or not executable: $tool" >&2
         exit 1
@@ -55,19 +54,13 @@ runtime_configs() {
          "-DVX_CFG_PLATFORM_CLOCK_RATE=250"
 }
 
-# prepare_project.sh only checks that the board-manager child IP exists; it does
-# not notice edits to rtl/board_mgmt/*.v, because the IP cache keys on the .ip
-# file rather than on the sources it copies. Force it, then prove the copies
-# match, or a compile silently produces a bitstream without the RTL changes.
-regenerate_board_mgmt_ip() {
-    local ip=ip/pcie_ddr4_system/pcie_ddr4_system_board_manager_2.ip
+# Quartus compiles the board manager from the copies Platform Designer made,
+# not from rtl/board_mgmt. prepare_project.sh refreshes those copies, but a bare
+# quartus_sh --flow compile does not, so an edit made after the last prepare run
+# silently produces a bitstream without it. Prove the copies match before
+# spending half an hour on the compile.
+verify_board_mgmt_ip() {
     local synth=ip/pcie_ddr4_system/pcie_ddr4_system_board_manager_2/de10pro_board_manager_10/synth
-
-    "$QSYS_ROOT/bin/qsys-generate" "$ip" \
-        --synthesis=VERILOG --part="$PART" \
-        --clear-output-directory --search-path="rtl/board_mgmt/,\$" \
-        || return 1
-
     local file
     for file in board_mgmt_core.v board_mgmt_i2c_master.v \
                 de10pro_board_manager.v de10pro_dynamic_clock.v; do
@@ -162,7 +155,7 @@ build_one() {
     QUARTUS_ROOT=$QUARTUS_ROOT \
         "$PREPARE" || return 1
 
-    regenerate_board_mgmt_ip || return 1
+    verify_board_mgmt_ip || return 1
 
     "$QUARTUS_ROOT/bin/quartus_sh" --flow compile "$PROJECT_NAME" || return 1
 
