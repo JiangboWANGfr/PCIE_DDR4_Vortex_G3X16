@@ -71,6 +71,22 @@ verify_board_mgmt_ip() {
     done
 }
 
+# The profile reaches the RTL only through the VERILOG_MACRO assignments
+# prepare_project.sh writes, and Quartus keeps the last definition of a macro
+# without warning, so a stale duplicate anywhere in the QSF builds a different
+# design than the one asked for. Count the cores that were actually
+# synthesized rather than trust the assignment.
+verify_core_count() {
+    local want=$1 got
+    got=$(awk -F';' 'NF>3 && $(NF-2) ~ /^ *VX_core *$/ {
+              gsub(/ /, "", $(NF-3)); print $(NF-3) }' \
+          "$PROJECT_DIR/output_files/$PROJECT_NAME.syn.rpt" | sort -u | wc -l)
+    if [[ $got -ne $want ]]; then
+        echo "error: synthesized $got VX_core instance(s), expected $want" >&2
+        return 1
+    fi
+}
+
 write_program_script() {
     local dest=$1 profile=$2
 
@@ -188,6 +204,8 @@ build_one() {
     verify_board_mgmt_ip || return 1
 
     "$QUARTUS_ROOT/bin/quartus_sh" --flow compile "$PROJECT_NAME" || return 1
+
+    verify_core_count "$cores" || return 1
 
     # The EMIF timing summaries are written to the project directory by a
     # relative path hard-coded in generated IP, so they can only be moved after

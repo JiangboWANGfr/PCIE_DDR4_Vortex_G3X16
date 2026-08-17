@@ -1502,23 +1502,10 @@ set_global_assignment -name DEVICE_INITIALIZATION_CLOCK OSC_CLK_1_125MHZ
 #============================================================
 set_global_assignment -name SEED 6
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+# This brings in the VERILOG_MACRO assignments as well. Do not repeat any of
+# them here: Quartus keeps the last definition of a macro without warning, so a
+# copy would silently override the profile prepare_project.sh just wrote.
 source generated/vortexcrypto/vortex_sources.qsf
-set_global_assignment -name VERILOG_MACRO "SYNTHESIS=1"
-set_global_assignment -name VERILOG_MACRO "QUARTUS=1"
-set_global_assignment -name VERILOG_MACRO "NDEBUG=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_XLEN=32"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_XLEN_32=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_NUM_CLUSTERS=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_NUM_CORES=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_NUM_WARPS=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_NUM_THREADS=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_EXT_F_DISABLE=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_EXT_D_DISABLE=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_ICACHE_LATENCY=3"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_DCACHE_LATENCY=3"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_PLATFORM_MEMORY_NUM_BANKS=1"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_PLATFORM_MEMORY_INTERLEAVE=0"
-set_global_assignment -name VERILOG_MACRO "VX_CFG_PLATFORM_CLOCK_RATE=250"
 set_global_assignment -name SEARCH_PATH /home/jiangbowang/aphdcode/vortex_proj/fpga_proj/PCIE_DDR4_Vortex_G3X16/generated/vortexcrypto/config
 set_global_assignment -name SEARCH_PATH /home/jiangbowang/aphdcode/vortex_proj/vortexCrypto/hw/rtl
 set_global_assignment -name SEARCH_PATH /home/jiangbowang/aphdcode/vortex_proj/vortexCrypto/hw/rtl/libs
