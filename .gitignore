@@ -46,3 +46,6 @@ demo_batch/linux_app/PCIE_DDR4
 demo_batch/linux_app/*.o
 demo_batch/windows_app/*.exe
 demo_batch/windows_app/*.dll
+
+# Per-profile build archives from scripts/build.sh
+/results/
