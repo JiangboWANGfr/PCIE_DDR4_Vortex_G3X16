@@ -7,7 +7,6 @@ output_files/
 ip_upgrade_port_diff_reports/
 /pcie_ddr4_system/
 /generated/
-/vortex_shell_hw.tcl
 
 # Platform Designer generated component output; keep top-level *.ip configs
 /ip/pcie_example_design/*/

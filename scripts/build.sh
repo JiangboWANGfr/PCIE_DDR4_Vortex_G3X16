@@ -71,6 +71,28 @@ verify_board_mgmt_ip() {
     done
 }
 
+write_program_script() {
+    local dest=$1 profile=$2
+
+    # Quoted heredoc: everything stays literal, the two values are filled in
+    # afterwards so nothing expands while the script is being written.
+    cat > "$dest/program.sh" <<'EOF'
+#!/usr/bin/env bash
+# Program the FPGA with this profile's bitstream.
+#
+# This drops the PCIe link: the host loses the device until it is rescanned or
+# rebooted, and the driver has to be reloaded afterwards. Build the runtime with
+# the DE10PRO_CONFIGS line in README.md, or it will not match this bitstream.
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+QUARTUS_ROOT=${QUARTUS_ROOT:-@QUARTUS_ROOT@}
+exec "$QUARTUS_ROOT/bin/quartus_pgm" -m jtag -c "${CABLE:-1}" -o "p;@SOF@"
+EOF
+    sed -i -e "s|@QUARTUS_ROOT@|$QUARTUS_ROOT|" \
+           -e "s|@SOF@|${PROJECT_NAME}_$profile.sof|" "$dest/program.sh"
+    chmod +x "$dest/program.sh"
+}
+
 write_readme() {
     local dest=$1 profile=$2 cores=$3 warps=$4 threads=$5 elapsed=$6
 
@@ -101,6 +123,14 @@ write_readme() {
         echo '```sh'
         echo "DE10PRO_CONFIGS='$(runtime_configs "$cores" "$warps" "$threads")'"
         echo 'make -C sw/runtime de10pro CONFIGS="$DE10PRO_CONFIGS"'
+        echo '```'
+        echo
+        echo '## Programming'
+        echo
+        echo 'From this directory:'
+        echo
+        echo '```sh'
+        echo './program.sh          # override the JTAG cable with CABLE=2'
         echo '```'
         echo
         echo '## Timing'
@@ -171,6 +201,11 @@ build_one() {
     rm -rf "$dest"
     mkdir -p "$dest"
     cp -a "$PROJECT_DIR/output_files/." "$dest/"
+    # Quartus always names its output after the revision, so several profiles
+    # would archive an identically named SOF. Stamp the profile into the
+    # archived copy and point the programming script at it.
+    mv "$dest/$PROJECT_NAME.sof" "$dest/${PROJECT_NAME}_$profile.sof"
+    write_program_script "$dest" "$profile"
     write_readme "$dest" "$profile" "$cores" "$warps" "$threads" "$elapsed"
     echo "=== $profile: archived to $dest ($elapsed, $(du -sh "$dest" | cut -f1)) ==="
 }
