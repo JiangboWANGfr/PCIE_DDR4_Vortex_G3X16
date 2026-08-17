@@ -22,9 +22,6 @@ create_clock -period "644.531250 MHz" [get_ports QSFP28C_REFCLK_p]
 create_clock -period "644.531250 MHz" [get_ports QSFP28D_REFCLK_p]
 
 create_clock -period "166.666666 MHz" [get_ports DDR4A_REFCLK_p]
-create_clock -period "166.666666 MHz" [get_ports DDR4B_REFCLK_p]
-create_clock -period "166.666666 MHz" [get_ports DDR4C_REFCLK_p]
-create_clock -period "166.666666 MHz" [get_ports DDR4D_REFCLK_p]
 
 # for enhancing USB BlasterII to be reliable, 25MHz
 create_clock -name {altera_reserved_tck} -period 40 {altera_reserved_tck}
@@ -67,9 +64,6 @@ derive_clock_uncertainty
 #**************************************************************
 set_clock_groups -asynchronous -group [get_clocks { PCIE_REFCLK_p }]
 set_clock_groups -asynchronous -group [get_clocks { DDR4A_REFCLK_p }]
-set_clock_groups -asynchronous -group [get_clocks { DDR4B_REFCLK_p }]
-set_clock_groups -asynchronous -group [get_clocks { DDR4C_REFCLK_p }]
-set_clock_groups -asynchronous -group [get_clocks { DDR4D_REFCLK_p }]
 
 
 
