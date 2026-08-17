@@ -39,8 +39,8 @@ ip_upgrade_port_diff_reports/
 *.cmd
 Module.symvers
 modules.order
-linux_software_linux7/user/example/intel_fpga_pcie_link_test
-linux_software_linux7/user/example/intel_fpga_pcie_ddr4_test
+intel_fpga_pcie/user/example/intel_fpga_pcie_link_test
+intel_fpga_pcie/user/example/intel_fpga_pcie_ddr4_test
 demo_batch/linux_app/PCIE_DDR4
 demo_batch/linux_app/*.o
 demo_batch/windows_app/*.exe

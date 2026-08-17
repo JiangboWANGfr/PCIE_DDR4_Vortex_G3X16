@@ -2,7 +2,7 @@
 
 # 1. 加载 Intel 配套驱动
 
-  cd /home/jiangbowang/aphdcode/vortex_proj/fpga_proj/PCIE_DDR4_Vortex_G3X16/linux_software_linux7/kernel/linux
+  cd intel_fpga_pcie/kernel/linux
   sudo ./load
 
 # 2. 编译并测试四路 DDR4
@@ -21,7 +21,7 @@
 
   PCIe_SW_KIT 仍有用，但用途不同：
 
-- linux_software_linux7
+- intel_fpga_pcie
 
   - 使用 /dev/intel_fpga_pcie_drv
   - 用于当前 SOF 的 PCIe DMA、四路 DDR4 硬件验证
