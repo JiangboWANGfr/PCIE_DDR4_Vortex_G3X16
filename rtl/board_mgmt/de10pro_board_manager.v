@@ -287,7 +287,11 @@ module de10pro_board_manager #(
             avs_readdatavalid <= 1'b0;
             timestamp_counter <= 64'b0;
             snapshot_timestamp <= 64'b0;
-            requested_hz <= 32'd250000000;
+            // Must match the dynamic clock's power-on current_hz. A host that
+            // pulses the apply bit without first writing REG_CLOCK_REQ_HZ gets
+            // whatever this says, so a stale value here drives the fabric to a
+            // rate nobody asked for. No test covers it.
+            requested_hz <= 32'd200000000;
             request_sequence <= 32'b0;
             clock_apply <= 1'b0;
             clock_clear_status <= 1'b0;
