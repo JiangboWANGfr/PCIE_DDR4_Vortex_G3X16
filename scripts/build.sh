@@ -51,7 +51,7 @@ runtime_configs() {
          "-DVX_CFG_ICACHE_LATENCY=3 -DVX_CFG_DCACHE_LATENCY=3" \
          "-DVX_CFG_PLATFORM_MEMORY_NUM_BANKS=1" \
          "-DVX_CFG_PLATFORM_MEMORY_INTERLEAVE=0" \
-         "-DVX_CFG_PLATFORM_CLOCK_RATE=250"
+         "-DVX_CFG_PLATFORM_CLOCK_RATE=200"
 }
 
 # Quartus compiles the board manager from the copies Platform Designer made,
@@ -129,8 +129,10 @@ write_readme() {
         echo
         echo "The rest of the profile is fixed by prepare_project.sh: RV32, one"
         echo "cluster, F and D disabled, three-cycle I-cache and D-cache,"
-        echo "one platform-memory bank without interleaving, 250 MHz initial Vortex"
-        echo "clock with 100/125/200/250 MHz profiles in the bitstream."
+        echo "one platform-memory bank without interleaving, 200 MHz initial Vortex"
+        echo "clock with 100/125/200/250 MHz profiles in the bitstream. Only the"
+        echo "200 MHz profile is covered by timing analysis; the others are"
+        echo "reachable at runtime but were not signed off."
         echo
         echo '## Host runtime'
         echo

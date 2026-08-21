@@ -217,8 +217,8 @@ module tb_de10pro_dynamic_clock;
         repeat (3) @(posedge mgmt_clk);
         pll_locked = 1'b1;
         while (busy) @(posedge mgmt_clk);
-        if (!current_valid || (current_hz != 32'd250000000)) begin
-            $fatal(1, "startup did not select 250 MHz");
+        if (!current_valid || (current_hz != 32'd200000000)) begin
+            $fatal(1, "startup did not select 200 MHz");
         end
         repeat (20) @(posedge mgmt_clk);
         #1;

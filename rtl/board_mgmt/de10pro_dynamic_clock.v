@@ -203,12 +203,16 @@ module de10pro_dynamic_clock #(
             done <= 1'b0;
             error <= 1'b0;
             error_code <= ERROR_NONE;
-            current_hz <= 32'd250000000;
+            // Startup never reconfigures the PLL, it only waits for lock, so
+            // these are a claim about how the IOPLL was solved rather than a
+            // program of it. They must match gui_output_clock_frequency0 in
+            // integrate_vortex.tcl; nothing here can detect a disagreement.
+            current_hz <= 32'd200000000;
             current_valid <= 1'b0;
             done_sequence <= 32'b0;
-            current_profile <= 2'd3;
-            pending_profile <= 2'd3;
-            pending_hz <= 32'd250000000;
+            current_profile <= 2'd2;
+            pending_profile <= 2'd2;
+            pending_hz <= 32'd200000000;
             pending_sequence <= 32'b0;
             state <= STATE_STARTUP;
             clock_change_req <= 1'b1;
